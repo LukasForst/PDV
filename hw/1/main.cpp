@@ -19,7 +19,7 @@ const unsigned int SLEEP_PER_STEP_WORKER = 2;
 const unsigned int SLEEP_PER_FASTEST_PRODUCER = 20;
 
 // Povoleni kontrolnich vypisu
-const bool VERBOSE = false;
+const bool VERBOSE = true;
 // Mutex pro vypisy na stdout
 std::mutex cout_mu;
 

@@ -7,6 +7,8 @@
 #include <iostream>
 #include <condition_variable>
 
+using namespace std;
+
 template<typename job_t, typename worker_t>
 class ThreadPool {
 private:
@@ -17,11 +19,16 @@ private:
     std::vector<std::thread> threads;
 
     // Funkce, kterou maji konzumenti vykonavat
-    const worker_t & worker;
+    const worker_t &worker;
+
+    condition_variable cond;
+    mutex cond_m;
 
 public:
-    ThreadPool(const unsigned int num_threads, const worker_t & worker);
+    ThreadPool(const unsigned int num_threads, const worker_t &worker);
+
     void process(const job_t job);
+
     void join();
 
 };
@@ -38,20 +45,25 @@ ThreadPool<job_t, worker_t>::ThreadPool(const unsigned int num_threads, const wo
     //   - Vlakno se ukonci pokud uloha ke zpracovani je 0
     //   - Vytvorena vlakna vlozte do pole "threads"
 
-    threads.push_back(std::thread([&]() {
-        job_t task;
-        do {
-            while(queue.empty());     // Cekame, nez se ve fronte objevi nejaka uloha
-                                      // Ve Vasi implementaci zkuste nahradit toto aktivni cekani
-                                      // pomoci podminkove promenne (condition_variable)
+    for (unsigned i = 0; i < num_threads; i++) {
+        threads.push_back(std::thread([&]() {
+            job_t task;
+            do {
+                unique_lock<mutex> lock(cond_m);
+                cond.wait(lock, [this]() { return !queue.empty(); });
 
-            // Pote ji zpracujeme:
-            task = queue.front();        // Precteme prvni ulohu ve fronte
-            queue.pop_front();           // A ulohu odstranime
-            if(task != 0) worker(task);  // Na zaver zavolame "worker" funkci, ktera ulohu vykona
+                task = queue.front();        // Precteme prvni ulohu ve fronte
+                queue.pop_front();           // A ulohu odstranime
 
-        } while(task != 0);              // Pokud je "zpracovana" uloha 0, skoncime
-    }));
+                lock.unlock();
+                if (task != 0) worker(task);  // Na zaver zavolame "worker" funkci, ktera ulohu vykona
+
+            } while (task != 0);              // Pokud je "zpracovana" uloha 0, skoncime
+        }));
+
+    }
+
+
 
     // Tento kod nesplnuje zadani z nekolika duvodu:
     //   - Spousti pouze jedno vlakno konzumenta. Pokud vykonani uloh pomoci worker(task)
@@ -73,10 +85,13 @@ ThreadPool<job_t, worker_t>::ThreadPool(const unsigned int num_threads, const wo
 template<typename job_t, typename worker_t>
 void ThreadPool<job_t, worker_t>::process(const job_t job) {
     // Bezpecne vlozte ulohu "job" do fronty uloh "queue"
-    
-    // Pridat ulohu do fronty muzeme nasledujicim volanim:
-    queue.push_back(job);
 
+    // Pridat ulohu do fronty muzeme nasledujicim volanim:
+
+    unique_lock<mutex> lock(cond_m);
+    queue.push_back(job);
+    lock.unlock();
+    cond.notify_one();
     // Pokud timto zpusobem bude ale vice vlaken bude pristupovat ke fronte soucasne,
     // vysledek neni determinsticky. Mohlo by se nam napriklad stat, ze nam jine
     // vlakno nasi pridanou ulohu "prepise" a ta se tak ztrati.
@@ -86,7 +101,7 @@ void ThreadPool<job_t, worker_t>::process(const job_t job) {
 // Tato metoda nam umozni volajici funkci v main.cpp pockat na vsechna spustena vlakna konzumentu
 template<typename job_t, typename worker_t>
 void ThreadPool<job_t, worker_t>::join() {
-    for(unsigned int i = 0 ; i < threads.size() ; i++) threads[i].join();
+    for (unsigned int i = 0; i < threads.size(); i++) threads[i].join();
 }
 
 #endif //PRODUCENTCONSUMER_THREADPOOL_H

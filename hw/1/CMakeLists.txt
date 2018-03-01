@@ -6,4 +6,5 @@ set(CMAKE_CXX_STANDARD 14)
 set( CMAKE_CXX_FLAGS  "${CMAKE_CXX_FLAGS} -Wall -Wextra -pthread -O3" )
 
 add_executable(threadpool.bin main.cpp)
+add_executable(tp main.cpp ThreadPool.h)
 add_custom_target(threadpool COMMAND threadpool.bin DEPENDS threadpool.bin)
