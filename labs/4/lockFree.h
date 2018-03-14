@@ -27,10 +27,16 @@ public:
             // doplne kontrolu jestli na aktualni pozici pridat vkladanou hodnotu
             // nebo se posunte seznamem dale
 
-            break;
+            if(next != nullptr && next->value < value) {
+                current = next;
+                next = (Node*) next->next;
+                continue;
+            }
+            node->next = next;
+            if(current->next.compare_exchange_strong(next, node)){
+                return;
+            }
         }
-
-        throw "Not implemented yet";
     }
 
     bool remove(unsigned long long value) {
