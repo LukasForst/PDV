@@ -4,29 +4,30 @@
 void bst_tree::insert(long long data) {
     auto new_node = new node(data);
 
-    auto *curr = root;
+    node *curr = root;
     if (curr == nullptr) {
         root = new_node;
         return;
     }
 
-    while (curr != nullptr && curr->data != data) {
-        node *possible_next = nullptr;
+    while (true) {
+        node *next = nullptr;
         if (curr->data < data) {
-            possible_next = curr->right;
-            if (possible_next == nullptr && curr->right.compare_exchange_strong(possible_next, new_node)) {
-                return;
+            next = curr->right;
+            if (next == nullptr && curr->right.compare_exchange_strong(next, new_node)) {
+                break;
             }
+            curr = curr->right;
+
         } else {
-            possible_next = curr->left;
-            if (possible_next == nullptr && curr->left.compare_exchange_strong(possible_next, new_node)) {
-                return;
+            next = curr->left;
+            if (next == nullptr && curr->left.compare_exchange_strong(next, new_node)) {
+                break;
             }
+            curr = curr->left;
         }
-        curr = possible_next;
     }
 
-    throw "UnexpectedError";
 }
 
 bst_tree::~bst_tree() {
