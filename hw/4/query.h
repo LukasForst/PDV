@@ -9,13 +9,11 @@ template<typename row_t>
 using predicate_t = std::function<bool(const row_t &)>;
 
 
-
 template<typename row_t>
 bool is_satisfied_for_all(std::vector<predicate_t<row_t>> predicates, std::vector<row_t> data_table);
 
 template<typename row_t>
 bool is_satisfied_for_any(std::vector<predicate_t<row_t>> predicates, std::vector<row_t> data_table);
-
 
 
 template<typename row_t>
@@ -27,33 +25,34 @@ bool is_satisfied_for_all(std::vector<predicate_t<row_t>> predicates, std::vecto
     // Pro inspiraci si prostudujte kod, kterym muzete zjistit, zda prvni dilci dotaz plati,
     // tj., zda existuje alespon jeden radek v tabulce, pro ktery predikat reprezentovany
     // funkci predicates[i] plati:
+    volatile bool result = true;
+    auto preds = predicates.size();
+    auto row_count = data_table.size();
 
-    throw "Not implemented yet";
+#pragma omp parallel for shared(result)
+    for (int i = 0; i < preds; i++) {
+        if (!result) continue;
 
-    auto & first_predicate = predicates[0];        // Funkce reprezentujici predikat prvniho poddotazu
+        auto &predicate = predicates[i];
+        auto pred_is_satisfied = false;
 
-    unsigned int row_count = data_table.size();    // Kazdy radek tabulky je reprezentovany jednim prvkem
-                                                   // vektoru 'data_table'. Velikost vektoru tedy odpovida
-                                                   // poctu zaznamu
+        for (unsigned int j = 0; j < row_count; j++) {
+            auto &row = data_table[j];                // j-ty radek tabulky ...
+            bool is_satisfied = predicate(row);  // ... splnuje prvni predikat, pokud funkce first_predicate
 
-    for(unsigned int i = 0 ; i < row_count ; i++) {
-        auto & row = data_table[i];                // i-ty radek tabulky ...
-        bool is_satisfied = first_predicate(row);  // ... splnuje prvni predikat, pokud funkce first_predicate
-                                                   //     vrati true
-
-        if(is_satisfied) {
-            // Nalezli jsme radek, pro ktery je predikat splneny.
-            // Dilci poddotaz tedy plati
-
-            return true;
-        } else {
-            // V opacnem pripade hledame dal - stale muzeme najit radek, pro ktery predikat plati
+            if (is_satisfied) {
+                pred_is_satisfied = true;
+                break;
+            }
         }
+
+        if (!pred_is_satisfied) {
+            result = false;
+        }
+
     }
 
-    // Radek, pro ktery by prvni predikat platil, jsme nenasli. Prvni dilci dotaz je tedy
-    // nepravdivy
-    return false;
+    return result;
 }
 
 template<typename row_t>
@@ -67,9 +66,33 @@ bool is_satisfied_for_any(std::vector<predicate_t<row_t>> predicates, std::vecto
     // Je pro Vas dulezitejsi rychle najit splnujici radek pro jeden vybrany predikat, nebo
     // je dulezitejsi zkouset najit takovy radek pro vice predikatu paralelne?
 
-    throw "Not implemented yet";
+    volatile bool result = false;
+    auto preds = predicates.size();
+    auto row_count = data_table.size();
 
-    return false;
+#pragma omp parallel for shared(result)
+    for (int i = 0; i < row_count; i++) {
+        if (result) continue;
+
+        auto &row = data_table[i];
+        auto pred_is_satisfied = false;
+        for (unsigned int j = 0; j < preds; j++) {
+            auto &predicate = predicates[j];
+
+            bool is_satisfied = predicate(row);
+
+            if (is_satisfied) {
+                pred_is_satisfied = true;
+                break;
+            }
+        }
+
+        if (pred_is_satisfied) {
+            result = true;
+        }
+    }
+
+    return result;
 }
 
 
