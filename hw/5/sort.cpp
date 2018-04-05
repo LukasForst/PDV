@@ -1,21 +1,41 @@
 #include "sort.h"
-#include <iostream>
+#include <omp.h>
 
-// implementace vaseho radiciho algoritmu. Detalnejsi popis zadani najdete v "sort.h"
-void radix_par(std::vector<std::string *> &vector_to_sort, const MappingFunction &mappingFunction,
+struct sort_data {
+    const MappingFunction &mapping_function;
+    unsigned long alphabet_size;
+    unsigned long string_lengths;
+};
+
+void recursive_radix_sort(std::vector<std::string *> &vector_to_sort, const sort_data &data,
+                          const unsigned int letter_index) {
+    if (letter_index == data.string_lengths)
+        return;
+
+    std::vector<std::string *> buckets[data.alphabet_size];
+    std::for_each(vector_to_sort.begin(), vector_to_sort.end(),
+                  [&](std::string *x) { buckets[data.mapping_function((*x).at(letter_index))].push_back(x); });
+
+#pragma omp parallel for
+    for (auto i = 0; i < data.alphabet_size; i++) {
+        recursive_radix_sort(buckets[i], data, letter_index + 1);
+    }
+
+    auto offset = 0;
+    for (auto i = 0; i < data.alphabet_size; i++) {
+        auto size = buckets[i].size();
+        for (auto j = 0; j < size; j++) {
+            vector_to_sort[offset++] = buckets[i][j];
+        }
+    }
+}
+
+void radix_par(std::vector<std::string *> &vector_to_sort, const MappingFunction &mapping_function,
                unsigned long alphabet_size, unsigned long string_lengths) {
-
-    // sem prijde vase implementace. zakomentujte tuto radku
-    throw "Not implemented.";
-
-    // abeceda se nemeni. jednotlive buckety by mely reprezentovat znaky teto abecedy. poradi znaku v abecede
-    // dostanete volanim funkce mappingFunction nasledovne: mappingFunction((*p_retezec).at(poradi_znaku))
-
-    // vytvorte si spravnou reprezentaci bucketu, kam budete retezce umistovat
-
-    // pro vetsi jednoduchost uvazujte, ze vsechny retezce maji stejnou delku - string_lengths. nemusite tedy resit
-    // zadne krajni pripady
-
-    // na konci metody by melo byt zaruceno, ze vector pointeru - vector_to_sort bude spravne serazeny.
-    // pointery budou serazeny podle retezcu, na ktere odkazuji, kdy retezcu jsou serazeny abecedne
+    sort_data data{
+            mapping_function,
+            alphabet_size,
+            string_lengths
+    };
+    recursive_radix_sort(vector_to_sort, data, 0);
 }
