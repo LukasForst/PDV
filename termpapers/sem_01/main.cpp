@@ -104,7 +104,7 @@ int main() {
 
     auto root = d.get_root();
 
-    evaluate(root, bfs);
+//    evaluate(root, bfs);
     evaluate(root, iddfs);
 
     return 0;
