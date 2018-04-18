@@ -3,7 +3,7 @@ project(PDV_Search)
 
 set(CMAKE_CXX_STANDARD 14)
 #set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -march=native -fopenmp -O3")
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -march=native")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -march=native -fopenmp")
 
 add_executable(search main.cpp state.h domains/hanoi.h domains/maze.h domains/sat.h domains/slidingPuzzle.h
         domains/utils.h algorithms/bfs.cpp algorithms/bfs.h algorithms/iddfs.cpp algorithms/iddfs.h)

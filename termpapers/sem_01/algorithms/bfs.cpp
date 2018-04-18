@@ -2,6 +2,9 @@
 #include <algorithm>
 #include <unordered_set>
 #include "bfs.h"
+#include <limits>
+#include <atomic>
+#include <omp.h>
 
 // Naimplementujte efektivni algoritmus pro nalezeni nejkratsi cesty v grafu.
 // V teto metode nemusite prilis optimalizovat pametove naroky, a vhodnym algo-
@@ -13,23 +16,35 @@
 std::shared_ptr<const state> bfs(std::shared_ptr<const state> root) {
     std::unordered_set<unsigned long long> close_list;
 
-    std::queue<std::shared_ptr<const state>> queue;
-    queue.push(root);
+    std::vector<std::shared_ptr<const state>> open_list;
+    open_list.push_back(root);
+    std::shared_ptr<const state> result;
+    std::atomic<unsigned int> max_cost = {std::numeric_limits<unsigned int>::max()};
 
-    while (!queue.empty()) {
-        auto s = queue.front();
-        queue.pop();
-        if (s->is_goal()) return s;
-        close_list.insert(s->get_identifier());
+    while (!open_list.empty()) {
+        std::vector<std::shared_ptr<const state>> data(open_list.begin(), open_list.end());
+        open_list.clear();
 
-        auto next_states = s->next_states();
-        for (int i = 0; i < next_states.size(); i++) {
-            bool contains = close_list.find(next_states[i]->get_identifier()) != close_list.end();
-            if (contains) continue;
+#pragma omp parallel for
+        for (int i = 0; i < data.size(); i++) {
+            auto s = data[i];
+            auto cost = s->current_cost();
+            if (cost >= max_cost) continue;
+            if (s->is_goal()) {
+                max_cost.exchange(cost);
+#pragma omp criticall
+                result = s;
+            }
 
-            queue.push(next_states[i]);
+            auto next_states = s->next_states();
+            for (int j = 0; j < next_states.size(); j++) {
+                if (next_states[j]->current_cost() >= max_cost) continue;
+                if (close_list.find(next_states[j]->get_identifier()) != close_list.end()) continue;
+#pragma omp critical
+                open_list.push_back(next_states[j]);
+            }
         }
     }
 
-    return root;
+    return result;
 }

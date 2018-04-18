@@ -1,6 +1,7 @@
 #include <unordered_set>
 #include <queue>
 #include "iddfs.h"
+#include <limits>
 
 
 bool dfs(const std::shared_ptr<const state> &root,
@@ -26,16 +27,19 @@ std::shared_ptr<const state> iddfs(std::shared_ptr<const state> root) {
     queue.push(root);
 
     auto finished = false;
+
     while (!queue.empty() && !finished) {
         auto s = queue.front();
         queue.pop();
 
-        if (s->is_goal()) return s;
+        if (s->is_goal()) {
+            return s;
+        }
 
         close_list.insert(s->get_identifier());
 
         auto next_states = s->next_states();
-#pragma omp parallel for
+
         for (int i = 0; i < next_states.size(); i++) {
             if(finished) continue;
             if (close_list.find(next_states[i]->get_identifier()) != close_list.end()) continue;
@@ -43,7 +47,6 @@ std::shared_ptr<const state> iddfs(std::shared_ptr<const state> root) {
             auto res = dfs(next_states[i], queue, close_list, 5);
             if (res) {
                 finished = true;
-//                return result;
             }
         }
     }
@@ -72,7 +75,7 @@ bool dfs(const std::shared_ptr<const state> &root,
             return true;
         }
 
-        close_list.insert(next[i]->get_identifier());
+    close_list.insert(next[i]->get_identifier());
     }
     return false;
 }
