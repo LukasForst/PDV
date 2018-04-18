@@ -50,6 +50,10 @@ public class BFSProcess extends DSProcess {
             2) Vytvorte tridy pro posilane zpravy
             3) Doplnte logiku reakce na zpravu a odeslani novych zprav
          */
+        while(!inbox.isEmpty()){
+            Message m = inbox.poll();
+
+        }
     }
 
     @Override
