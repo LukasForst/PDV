@@ -99,7 +99,7 @@ int main() {
     // Vytvorit domenu sliding-puzzle hranou na hraci plose 4x4 (15-puzzle)
     // muzete takto:
        auto d = sp_domain<4, 70, 0>();
-    // Inicialni pozice je generovana provedenim 70 nahodnych tahu (nahodny
+//     Inicialni pozice je generovana provedenim 70 nahodnych tahu (nahodny
     // generator je inicializovany seedem 0).
 
     // Posledni domenou jsou bludiste. Bludiste o rozmerech 31x21 muzete
