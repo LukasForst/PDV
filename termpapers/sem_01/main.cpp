@@ -68,7 +68,18 @@ void evaluate(std::shared_ptr<const state> &root, searchfn_t search) {
     std::cout << " **** " << std::endl << std::flush;
 }
 
+void test(){
+    std::vector<long long> a = {1,2,3,4,5,6};
+    std::cout << a[0] << std::endl;
+    std::cout << a.size() << std::endl;
+    a.erase(a.begin(), a.begin() + 3);
+    std::cout << a[0] << std::endl;
+    std::cout << a.size() << std::endl;
+}
+
 int main() {
+//    test();
+//    return 0;
     // Vytvoreni instance hanojskych vezi s 3 koliky, 1 vezi (umistenou na
     // prvnim koliku a 4 kotouci ve vezi.
 //    auto d = hanoi_domain<3,1,4>();
@@ -102,8 +113,8 @@ int main() {
 
     auto root = d.get_root();
 
-    evaluate(root, bfs);
-//    evaluate(root, iddfs);
+//    evaluate(root, bfs);
+    evaluate(root, iddfs);
     std::cout << "Hell yeah!" << std::flush;
     return 0;
 }
