@@ -15,12 +15,28 @@
 // Metoda ma za ukol vratit ukazatel na cilovy stav, ktery je dosazitelny pomoci
 // nejkratsi cesty.
 std::shared_ptr<const state> bfs(std::shared_ptr<const state> root) {
+    if(root->is_goal()) return root;
+    std::shared_ptr<const state> result;
+    std::atomic<unsigned int> max_cost = {std::numeric_limits<unsigned int>::max()};
+
     std::unordered_set<unsigned long long> close_list;
 
     std::vector<std::shared_ptr<const state>> open_list;
-    open_list.push_back(root);
-    std::shared_ptr<const state> result;
-    std::atomic<unsigned int> max_cost = {std::numeric_limits<unsigned int>::max()};
+    close_list.insert(root->get_identifier());
+
+    auto nexts = root->next_states();
+    for(const auto &i : nexts){
+        if(i->is_goal()) {
+            auto cost = i->current_cost();
+            if(cost < max_cost){
+                max_cost = i->current_cost();
+                result = i;
+            }
+        }
+
+        open_list.push_back(i);
+        close_list.insert(i->get_identifier());
+    }
 
     while (!open_list.empty()) {
         auto size = open_list.size();
