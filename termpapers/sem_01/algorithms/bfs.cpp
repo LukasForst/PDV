@@ -32,6 +32,7 @@ std::shared_ptr<const state> bfs(std::shared_ptr<const state> root) {
                 max_cost = i->current_cost();
                 result = i;
             }
+            continue;
         }
 
         open_list.push_back(i);
@@ -52,8 +53,10 @@ std::shared_ptr<const state> bfs(std::shared_ptr<const state> root) {
                 auto cost = next->current_cost();
 
                 if (next->is_goal()) {
-                    result = next;
-                    max_cost = cost;
+                    if(max_cost > cost){
+                        result = next;
+                        max_cost = cost;
+                    }
                     continue;
                 } else if (cost >= max_cost || close_list.find(next_states[j]->get_identifier()) != close_list.end()) {
                     continue;

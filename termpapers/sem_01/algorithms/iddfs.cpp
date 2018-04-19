@@ -24,48 +24,65 @@ std::shared_ptr<const state> dfs(std::shared_ptr<const state> root_upp,
 // Metoda ma za ukol vratit ukazatel na cilovy stav, ktery je dosazitelny pomoci
 // nejkratsi/nejlevnejsi cesty.
 std::shared_ptr<const state> iddfs(std::shared_ptr<const state> root) {
-    std::unordered_set<unsigned long long> close_list;
-
-    std::vector<std::shared_ptr<const state>> open_list;
-    open_list.push_back(root);
+    if(root->is_goal()) return root;
     std::shared_ptr<const state> result;
     std::atomic<unsigned int> max_cost = {std::numeric_limits<unsigned int>::max()};
 
-    while (!open_list.empty()) {
-        auto curr_size = open_list.size();
+    std::unordered_set<unsigned long long> close_list;
 
-//#pragma omp parallel for
-        for (int i = 0; i < curr_size; i++) {
-            std::vector<std::shared_ptr<const state>> op;
-            auto s = open_list[i];
-            auto cost = s->current_cost();
-            if (cost >= max_cost) {
-                continue;
-            } else if (s->is_goal()) {
-#pragma omp critical
-                {
-                    max_cost.exchange(cost);
-                    result = s;
-                }
-                continue;
+    std::vector<std::shared_ptr<const state>> open_list;
+    close_list.insert(root->get_identifier());
+
+    auto nexts = root->next_states();
+    for(const auto &i : nexts){
+        if(i->is_goal()) {
+            auto cost = i->current_cost();
+            if(cost < max_cost){
+                max_cost = i->current_cost();
+                result = i;
             }
-
-            auto next_states = s->next_states();
-            for (int j = 0; j < next_states.size(); j++) {
-                if (next_states[j]->current_cost() >= max_cost) continue;
-                if (close_list.find(next_states[j]->get_identifier()) != close_list.end()) continue;
-
-//                op.push_back(next_states[j]);
-                std::shared_ptr<const state> res = dfs(next_states[i], op, close_list, 3);
-                if(!res){
-                    op.push_back(res);
-                }
-            }
-#pragma omp critical
-            open_list.insert(open_list.end(), op.begin(), op.end());
+            continue;
         }
 
-        open_list.erase(open_list.begin(), open_list.begin() + curr_size);
+        open_list.push_back(i);
+        close_list.insert(i->get_identifier());
+    }
+
+    while (!open_list.empty()) {
+        auto size = open_list.size();
+
+#pragma omp parallel for
+        for (int i = 0; i < size; i++) {
+            std::vector<std::shared_ptr<const state>> op;
+            auto current = open_list[i];
+            auto next_states = current->next_states();
+
+            for (int j = 0; j < next_states.size(); j++) {
+                auto next = next_states[j];
+                auto cost = next->current_cost();
+
+                if (next->is_goal()) {
+                    if(max_cost > cost){
+                        result = next;
+                        max_cost = cost;
+                    }
+                    continue;
+                } else if (cost >= max_cost || close_list.find(next_states[j]->get_identifier()) != close_list.end()) {
+                    continue;
+                }
+
+                op.push_back(next);
+            }
+
+#pragma omp critical
+            {
+                for (const auto &j : op) {
+                    open_list.push_back(j);
+                }
+            }
+        }
+
+        open_list.erase(open_list.begin(), open_list.begin() + size);
         std::for_each(open_list.begin(), open_list.end(),
                       [&](std::shared_ptr<const state> x) { close_list.insert(x->get_identifier()); });
     }
