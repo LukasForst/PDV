@@ -15,7 +15,7 @@
 // Metoda ma za ukol vratit ukazatel na cilovy stav, ktery je dosazitelny pomoci
 // nejkratsi cesty.
 std::shared_ptr<const state> bfs(std::shared_ptr<const state> root) {
-    if(root->is_goal()) return root;
+    if (root->is_goal()) return root;
     std::shared_ptr<const state> result;
     std::atomic<unsigned int> max_cost = {std::numeric_limits<unsigned int>::max()};
 
@@ -25,10 +25,10 @@ std::shared_ptr<const state> bfs(std::shared_ptr<const state> root) {
     close_list.insert(root->get_identifier());
 
     auto nexts = root->next_states();
-    for(const auto &i : nexts){
-        if(i->is_goal()) {
+    for (const auto &i : nexts) {
+        if (i->is_goal()) {
             auto cost = i->current_cost();
-            if(cost < max_cost){
+            if (cost < max_cost) {
                 max_cost = i->current_cost();
                 result = i;
             }
@@ -53,12 +53,13 @@ std::shared_ptr<const state> bfs(std::shared_ptr<const state> root) {
                 auto cost = next->current_cost();
 
                 if (next->is_goal()) {
-                    if(max_cost > cost){
+                    if (max_cost > cost) {
                         result = next;
                         max_cost = cost;
                     }
                     continue;
-                } else if (cost >= max_cost || close_list.find(next_states[j]->get_identifier()) != close_list.end()) {
+                } else if (next->get_identifier() == current->get_predecessor()->get_identifier() || cost >= max_cost ||
+                           close_list.find(next_states[j]->get_identifier()) != close_list.end()) {
                     continue;
                 }
 

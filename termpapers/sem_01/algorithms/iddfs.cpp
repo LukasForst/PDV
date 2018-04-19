@@ -24,7 +24,8 @@ std::shared_ptr<const state> dfs(std::shared_ptr<const state> root_upp,
 // Metoda ma za ukol vratit ukazatel na cilovy stav, ktery je dosazitelny pomoci
 // nejkratsi/nejlevnejsi cesty.
 std::shared_ptr<const state> iddfs(std::shared_ptr<const state> root) {
-    if(root->is_goal()) return root;
+//    if(root->is_goal()) return root;
+    return root;
     std::shared_ptr<const state> result;
     std::atomic<unsigned int> max_cost = {std::numeric_limits<unsigned int>::max()};
 
@@ -48,6 +49,7 @@ std::shared_ptr<const state> iddfs(std::shared_ptr<const state> root) {
         close_list.insert(i->get_identifier());
     }
 
+    auto cache_hit = 0;
     while (!open_list.empty()) {
         auto size = open_list.size();
 
@@ -67,7 +69,11 @@ std::shared_ptr<const state> iddfs(std::shared_ptr<const state> root) {
                         max_cost = cost;
                     }
                     continue;
+                } else if(next->get_identifier() == current->get_predecessor()->get_identifier()){
+                    continue;
                 } else if (cost >= max_cost || close_list.find(next_states[j]->get_identifier()) != close_list.end()) {
+#pragma omp atomic
+                    cache_hit++;
                     continue;
                 }
 

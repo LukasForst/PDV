@@ -86,7 +86,7 @@ int main() {
 
     // Vytvorit domenu "splnovani booleovskych funkci" muzete vytvorit na-
     // sledovne:
-       auto d = sat_domain<30,7,3,1,true>();
+//       auto d = sat_domain<30,7,3,1,true>();
     // Tato domena pak ma:
     //   - 30 booleovskych promennych
     //   - 7 termu (ktere jsou spojeny disjunkci)
@@ -98,7 +98,7 @@ int main() {
 
     // Vytvorit domenu sliding-puzzle hranou na hraci plose 4x4 (15-puzzle)
     // muzete takto:
-//       auto d = sp_domain<4, 70, 0>();
+       auto d = sp_domain<4, 70, 0>();
 //     Inicialni pozice je generovana provedenim 70 nahodnych tahu (nahodny
     // generator je inicializovany seedem 0).
 
