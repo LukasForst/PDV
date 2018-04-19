@@ -1,11 +1,11 @@
 #include <queue>
 #include <algorithm>
 #include <unordered_set>
-#include "bfs.h"
 #include <limits>
 #include <atomic>
 #include <omp.h>
-#include <iostream>
+
+#include "bfs.h"
 
 // Naimplementujte efektivni algoritmus pro nalezeni nejkratsi cesty v grafu.
 // V teto metode nemusite prilis optimalizovat pametove naroky, a vhodnym algo-
@@ -17,8 +17,15 @@
 std::shared_ptr<const state> bfs(std::shared_ptr<const state> root) {
     std::unordered_set<unsigned long long> close_list;
 
-    std::vector<std::shared_ptr<const state>> open_list;
-    open_list.push_back(root);
+    close_list.insert(root->get_identifier());
+    std::vector<std::shared_ptr<const state>> succs = root->next_states();
+    std::vector<std::shared_ptr<const state>> open_list(succs.size());
+
+    for (int i = 0; i < succs.size(); i++) {
+        open_list.push_back(succs[i]);
+        close_list.insert(succs[i]->get_identifier());
+    }
+
     std::shared_ptr<const state> result;
     std::atomic<unsigned int> max_cost = {std::numeric_limits<unsigned int>::max()};
 
@@ -28,26 +35,28 @@ std::shared_ptr<const state> bfs(std::shared_ptr<const state> root) {
 
 #pragma omp parallel for
         for (int i = 0; i < curr_size; i++) {
-            auto s = open_list[i];
-            auto cost = s->current_cost();
-            if (cost >= max_cost) {
-                continue;
-            } else if (s->is_goal()) {
-#pragma omp critical
-                {
-                    max_cost.exchange(cost);
-                    result = s;
-                }
-                continue;
-            }
-
-            auto next_states = s->next_states();
+            std::vector<std::shared_ptr<const state>> op;
+            std::shared_ptr<const state> current = open_list[i];
+            auto next_states = current->next_states();
             for (int j = 0; j < next_states.size(); j++) {
-                if (next_states[j]->current_cost() >= max_cost) continue;
-                if (close_list.find(next_states[j]->get_identifier()) != close_list.end()) continue;
-#pragma omp critical
-                open_list.push_back(next_states[j]);
+                std::shared_ptr<const state> next = next_states[i];
+                auto cost = next->current_cost();
+
+                if (cost >= max_cost) {
+                    continue;
+                }
+
+                if (next->is_goal()) {
+                    max_cost.exchange(cost);
+                    result = next;
+                    continue;
+                }
+
+                if (close_list.find(next->get_identifier()) != close_list.end()) continue;
+                op.push_back(next);
             }
+#pragma omp critical
+            open_list.insert(open_list.end(), op.begin(), op.end());
         }
 
         open_list.erase(open_list.begin(), open_list.begin() + curr_size);

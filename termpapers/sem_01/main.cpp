@@ -113,8 +113,8 @@ int main() {
 
     auto root = d.get_root();
 
-//    evaluate(root, bfs);
-    evaluate(root, iddfs);
+    evaluate(root, bfs);
+//    evaluate(root, iddfs);
     std::cout << "Hell yeah!" << std::flush;
     return 0;
 }
