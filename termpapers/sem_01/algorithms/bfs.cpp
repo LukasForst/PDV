@@ -16,16 +16,19 @@
 // nejkratsi cesty.
 std::shared_ptr<const state> bfs(std::shared_ptr<const state> root) {
     if (root->is_goal()) return root;
+    std::vector<std::shared_ptr<const state>> open_list;
+
     std::shared_ptr<const state> result;
     std::atomic<unsigned int> max_cost = {std::numeric_limits<unsigned int>::max()};
 
     std::unordered_set<unsigned long long> close_list;
 
-    std::vector<std::shared_ptr<const state>> open_list;
     close_list.insert(root->get_identifier());
 
     auto nexts = root->next_states();
-    for (const auto &i : nexts) {
+    auto nexts_size = nexts.size();
+    for (int j = 0; j < nexts_size; j++) {
+        auto i = nexts[j];
         if (i->is_goal()) {
             auto cost = i->current_cost();
             if (cost < max_cost) {
@@ -44,13 +47,13 @@ std::shared_ptr<const state> bfs(std::shared_ptr<const state> root) {
 
 #pragma omp parallel for
         for (int i = 0; i < size; i++) {
-            std::vector<std::shared_ptr<const state>> op;
             auto current = open_list[i];
             auto next_states = current->next_states();
-
-            for (int j = 0; j < next_states.size(); j++) {
+            auto next_states_size = next_states.size();
+            for (int j = 0; j < next_states_size; j++) {
                 auto next = next_states[j];
                 auto cost = next->current_cost();
+                auto id = next->get_identifier();
 
                 if (next->is_goal()) {
                     if (max_cost > cost) {
@@ -58,25 +61,19 @@ std::shared_ptr<const state> bfs(std::shared_ptr<const state> root) {
                         max_cost = cost;
                     }
                     continue;
-                } else if (next->get_identifier() == current->get_predecessor()->get_identifier() || cost >= max_cost ||
-                           close_list.find(next_states[j]->get_identifier()) != close_list.end()) {
+                } else if (id == current->get_predecessor()->get_identifier() || cost >= max_cost ||
+                           close_list.find(id) != close_list.end()) {
                     continue;
                 }
-
-                op.push_back(next);
-            }
-
 #pragma omp critical
-            {
-                for (const auto &j : op) {
-                    open_list.push_back(j);
+                {
+                    open_list.push_back(next);
+                    close_list.insert(next->get_identifier());
                 }
             }
         }
 
         open_list.erase(open_list.begin(), open_list.begin() + size);
-        std::for_each(open_list.begin(), open_list.end(),
-                      [&](std::shared_ptr<const state> x) { close_list.insert(x->get_identifier()); });
     }
     return result;
 }

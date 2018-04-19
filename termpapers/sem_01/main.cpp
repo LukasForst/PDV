@@ -104,7 +104,7 @@ int main() {
 
     // Posledni domenou jsou bludiste. Bludiste o rozmerech 31x21 muzete
     // vytvorit pomoci:
-    //   auto d = maze_domain<31, 21, 0, false>();
+//       auto d = maze_domain<31, 21, 0, false>();
     // Bludiste je generovano nahodne za pouziti seedu 0. V pripade, ze
     // nastavite posledni parametr na 'true', cena za jeden pohyb v bludisti
     // nebude uniformni.
