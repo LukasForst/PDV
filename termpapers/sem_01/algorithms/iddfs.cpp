@@ -8,11 +8,33 @@
 
 #include "iddfs.h"
 
+std::shared_ptr<const state>
+dfs_depth(std::shared_ptr<const state> root, unsigned int depth);
 
-std::shared_ptr<const state> dfs(std::shared_ptr<const state> root_upp,
-                                 std::vector<std::shared_ptr<const state>> &open_list,
-                                 std::unordered_set<unsigned long long> &close_list,
-                                 int depth);
+std::shared_ptr<const state>
+dfs_cost(std::shared_ptr<const state> root, unsigned int max_cost);
+
+void fill_first_data(std::vector<std::shared_ptr<const state>> &first_data, std::shared_ptr<const state> root) {
+    auto max_threads = omp_get_max_threads();
+    auto successors = root->next_states();
+    auto successors_size = successors.size();
+
+    for (int i = 0; i < successors_size; i++) {
+        first_data.push_back(successors[i]);
+    }
+
+    while (first_data.size() < max_threads) {
+        auto ptr = first_data.back();
+
+        if (!ptr->is_goal()) first_data.pop_back();
+
+        auto nexts = ptr->next_states();
+        auto nexts_size = nexts.size();
+        for (int i = 0; i < nexts_size; i++) {
+            first_data.push_back(nexts[i]);
+        }
+    }
+}
 
 // Naimplementujte efektivni algoritmus pro nalezeni nejkratsi (respektive nej-
 // levnejsi) cesty v grafu. V teto metode mate ze ukol naimplementovat pametove
@@ -24,97 +46,87 @@ std::shared_ptr<const state> dfs(std::shared_ptr<const state> root_upp,
 // Metoda ma za ukol vratit ukazatel na cilovy stav, ktery je dosazitelny pomoci
 // nejkratsi/nejlevnejsi cesty.
 std::shared_ptr<const state> iddfs(std::shared_ptr<const state> root) {
-//    if(root->is_goal()) return root;
-    return root;
-    std::shared_ptr<const state> result;
-    std::atomic<unsigned int> max_cost = {std::numeric_limits<unsigned int>::max()};
+    if (root->is_goal()) return root;
 
-    std::unordered_set<unsigned long long> close_list;
+    std::vector<std::shared_ptr<const state>> first_gen;
+    fill_first_data(first_gen, root);
 
-    std::vector<std::shared_ptr<const state>> open_list;
-    close_list.insert(root->get_identifier());
-
-    auto nexts = root->next_states();
-    for(const auto &i : nexts){
-        if(i->is_goal()) {
-            auto cost = i->current_cost();
-            if(cost < max_cost){
-                max_cost = i->current_cost();
-                result = i;
-            }
-            continue;
-        }
-
-        open_list.push_back(i);
-        close_list.insert(i->get_identifier());
-    }
-
-    auto cache_hit = 0;
-    while (!open_list.empty()) {
-        auto size = open_list.size();
-
+    std::shared_ptr<const state> result = nullptr;
+    for (unsigned int i = 2; result == nullptr; i += 1) {
 #pragma omp parallel for
-        for (int i = 0; i < size; i++) {
-            std::vector<std::shared_ptr<const state>> op;
-            auto current = open_list[i];
-            auto next_states = current->next_states();
+        for (int j = 0; j < first_gen.size(); j++) {
+            if (result != nullptr) continue;
+            result = dfs_depth(first_gen[j], i);
+        }
+    }
+    if (result == nullptr) return nullptr;
 
-            for (int j = 0; j < next_states.size(); j++) {
-                auto next = next_states[j];
-                auto cost = next->current_cost();
+    auto max_cost = result->current_cost();
+    std::shared_ptr<const state> cost_result = nullptr;
+    auto done = true;
+    do {
+#pragma omp parallel for
+        for (int j = 0; j < first_gen.size(); j++) {
+            if (!done) continue;
 
-                if (next->is_goal()) {
-                    if(max_cost > cost){
-                        result = next;
-                        max_cost = cost;
-                    }
-                    continue;
-                } else if(next->get_identifier() == current->get_predecessor()->get_identifier()){
-                    continue;
-                } else if (cost >= max_cost || close_list.find(next_states[j]->get_identifier()) != close_list.end()) {
-#pragma omp atomic
-                    cache_hit++;
-                    continue;
-                }
+            auto cst = dfs_cost(first_gen[j], max_cost);
 
-                op.push_back(next);
-            }
-
+            if (cst != nullptr) {
 #pragma omp critical
-            {
-                for (const auto &j : op) {
-                    open_list.push_back(j);
+                {
+                    if(max_cost > result->current_cost()){
+                        result = cst;
+                        max_cost = result->current_cost();
+                        done = false;
+                    }
                 }
             }
         }
 
-        open_list.erase(open_list.begin(), open_list.begin() + size);
-        std::for_each(open_list.begin(), open_list.end(),
-                      [&](std::shared_ptr<const state> x) { close_list.insert(x->get_identifier()); });
-    }
+    } while (!done);
+
     return result;
 }
 
-std::shared_ptr<const state> dfs(std::shared_ptr<const state> root_upp,
-                                 std::vector<std::shared_ptr<const state>> &open_list,
-                                 std::unordered_set<unsigned long long> &close_list,
-                                 int depth) {
-    std::shared_ptr<const state> root = root_upp;
-
+std::shared_ptr<const state>
+dfs_depth(std::shared_ptr<const state> root,
+          const unsigned int depth) {
     if (root->is_goal()) {
         return root;
     } else if (depth == 0) {
-        open_list.push_back(root);
         return nullptr;
     }
 
-    auto next = root->next_states();
-    for (int i = 0; i < next.size(); ++i) {
-        if (close_list.find(next[i]->get_identifier()) != close_list.end()) continue;
-        auto result = dfs(next[i], open_list, close_list, depth - 1);
-        if (!result) {
-            return result;
-        }
+    auto succs = root->next_states();
+    auto succs_size = succs.size();
+    for (int i = 0; i < succs_size; i++) {
+        auto succ = succs[i];
+        if (succ->get_identifier() == root->get_predecessor()->get_identifier()) continue;
+
+        auto res = dfs_depth(succ, depth - 1);;
+        if (res != nullptr) return res;
     }
+
+    return nullptr;
+}
+
+std::shared_ptr<const state>
+dfs_cost(std::shared_ptr<const state> root, const unsigned int max_cost) {
+    if (root->current_cost() >= max_cost) {
+        return nullptr;
+    } else if (root->is_goal()) {
+        return root;
+    }
+
+    auto succs = root->next_states();
+    auto succs_size = succs.size();
+    for (int i = 0; i < succs_size; i++) {
+        auto succ = succs[i];
+        if (succ->get_identifier() == root->get_predecessor()->get_identifier()) continue;
+
+        auto res = dfs_cost(succ, max_cost);;
+        if (res != nullptr) return res;
+    }
+
     return nullptr;
 }
