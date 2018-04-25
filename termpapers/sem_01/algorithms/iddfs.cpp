@@ -52,38 +52,47 @@ std::shared_ptr<const state> iddfs(std::shared_ptr<const state> root) {
     fill_first_data(first_gen, root);
 
     std::shared_ptr<const state> result = nullptr;
-    for (unsigned int i = 2; result == nullptr; i += 1) {
+    for (unsigned int i = 2; result == nullptr; i += 2) {
 #pragma omp parallel for
         for (int j = 0; j < first_gen.size(); j++) {
             if (result != nullptr) continue;
-            result = dfs_depth(first_gen[j], i);
+            auto res = dfs_depth(first_gen[j], i);
+
+            if (res != nullptr) {
+#pragma omp criticall
+                if (result != nullptr) {
+                    if (result->current_cost() > res->current_cost()) result = res;
+                } else {
+                    result = res;
+                }
+            }
         }
     }
     if (result == nullptr) return nullptr;
 
-    auto max_cost = result->current_cost();
-    std::shared_ptr<const state> cost_result = nullptr;
-    auto done = true;
-    do {
-#pragma omp parallel for
-        for (int j = 0; j < first_gen.size(); j++) {
-            if (!done) continue;
-
-            auto cst = dfs_cost(first_gen[j], max_cost);
-
-            if (cst != nullptr) {
-#pragma omp critical
-                {
-                    if(max_cost > result->current_cost()){
-                        result = cst;
-                        max_cost = result->current_cost();
-                        done = false;
-                    }
-                }
-            }
-        }
-
-    } while (!done);
+//    auto max_cost = result->current_cost();
+//    std::shared_ptr<const state> cost_result = nullptr;
+//    auto done = true;
+//    do {
+//#pragma omp parallel for
+//        for (int j = 0; j < first_gen.size(); j++) {
+//            if (!done) continue;
+//
+//            auto cst = dfs_cost(first_gen[j], max_cost);
+//
+//            if (cst != nullptr) {
+//#pragma omp critical
+//                {
+//                    if(max_cost > result->current_cost()){
+//                        result = cst;
+//                        max_cost = result->current_cost();
+//                        done = false;
+//                    }
+//                }
+//            }
+//        }
+//
+//    } while (!done);
 
     return result;
 }
@@ -99,9 +108,10 @@ dfs_depth(std::shared_ptr<const state> root,
 
     auto succs = root->next_states();
     auto succs_size = succs.size();
+    auto predId = root->get_predecessor()->get_identifier();
     for (int i = 0; i < succs_size; i++) {
         auto succ = succs[i];
-        if (succ->get_identifier() == root->get_predecessor()->get_identifier()) continue;
+        if (succ->get_identifier() == predId) continue;
 
         auto res = dfs_depth(succ, depth - 1);;
         if (res != nullptr) return res;
@@ -120,9 +130,10 @@ dfs_cost(std::shared_ptr<const state> root, const unsigned int max_cost) {
 
     auto succs = root->next_states();
     auto succs_size = succs.size();
+    auto predId = root->get_predecessor()->get_identifier();
     for (int i = 0; i < succs_size; i++) {
         auto succ = succs[i];
-        if (succ->get_identifier() == root->get_predecessor()->get_identifier()) continue;
+        if (succ->get_identifier() == predId) continue;
 
         auto res = dfs_cost(succ, max_cost);;
         if (res != nullptr) return res;
