@@ -11,19 +11,12 @@ public class ScalarClock implements IProcessClock<Integer> {
 
     @Override
     public void update(IClock<Integer> timestamp) {
-
-        // TODO
-        // implementujte pravidlo pro aktualizaci lokalnich hodin
-        // na zaklade casove znamky z prijate zpravy
-
+        logicalTime = Math.max(timestamp.getTime(), logicalTime) + 1;
     }
 
     @Override
     public void onNewEvent() {
-
-        // TODO
-        // implementujte logiku zmeny logickych hodin s novou udalosti
-
+        logicalTime++;
     }
 
     @Override
@@ -48,7 +41,7 @@ public class ScalarClock implements IProcessClock<Integer> {
         // implementujte detekci poruseni kauzality na zaklade
         // porovnani lokalnich hodin a casove znamky zpravy od procesu
 
-        return false;
+        return timestamp.getTime() < logicalTime;
     }
 
 }
