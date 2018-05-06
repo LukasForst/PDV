@@ -50,6 +50,7 @@ public class ActStrategy {
      * Diky zavedeni teto metody muzeme kontrolovat pocet odeslanych zprav vasi implementaci.
      */
     public List<Pair<String, Message>> act(Queue<Message> inbox, String disseminationProcess) {
+
         tics++;
         // Od DisseminationProcess muzete dostat zpravu typu DeadProcessMessage, ktera Vas
         // informuje o spravne detekovanem ukoncenem procesu.
@@ -57,17 +58,22 @@ public class ActStrategy {
         // Zprava musi byt typu PFDMessage.
         List<Pair<String, Message>> result = new LinkedList<>();
         processInbox(inbox, result);
+//        if (messagesSent >= upperBoundOnMessages) return result;
 
         checkCurrentWaiting(result, disseminationProcess);
+        List<String> live = otherProcesses.stream().filter(x -> !ackWaitingProcess.containsKey(x) && !reAckWaitingProcess.containsKey(x)).collect(Collectors.toList());
 
-        result.add(new Pair<>(otherProcesses.get(currentIndex), new PingMsg()));
-        ackWaitingProcess.put(otherProcesses.get(currentIndex), tics);
-        currentIndex = (currentIndex + 1) % otherProcesses.size();
-
-        messagesSent += result.size();
-        if (messagesSent > upperBoundOnMessages) {
-            result.clear();
+        if (live.size() != 0 && ackWaitingProcess.isEmpty() && reAckWaitingProcess.isEmpty()) {
+            Collections.shuffle(live);
+            String target = live.get(rd.nextInt(live.size()));
+            result.add(new Pair<>(target, new PingMsg()));
+            ackWaitingProcess.put(target, tics);
         }
+        messagesSent += result.size();
+//        if (messagesSent > upperBoundOnMessages) {
+//            result = result.stream().filter(x -> x.getSecond() instanceof AckMsg).limit(messagesSent - upperBoundOnMessages).collect(Collectors.toList());
+//        }
+
         return result;
     }
 
@@ -75,16 +81,16 @@ public class ActStrategy {
         int maxTime = (maxDelayForMessages + 1) * 2;
         List<String> toRemove = new LinkedList<>();
         for (String process : ackWaitingProcess.keySet()) {
-            if (ackWaitingProcess.get(process) + maxTime <= tics) {
+            if (ackWaitingProcess.get(process) + maxTime < tics) {
                 toRemove.add(process);
-                sendRePing(process, result, 4);
+                sendRePing(process, result);
             }
         }
 
         toRemove.forEach(ackWaitingProcess::remove);
         toRemove.clear();
 
-        maxTime = maxTime * 2;
+        maxTime = maxTime * 2 + 4;
         for (String process : reAckWaitingProcess.keySet()) {
             if (reAckWaitingProcess.get(process) + maxTime < tics) {
                 toRemove.add(process);
@@ -94,32 +100,26 @@ public class ActStrategy {
         toRemove.forEach(reAckWaitingProcess::remove);
     }
 
-    private void sendRePing(String target, List<Pair<String, Message>> result, int times) {
+    private void sendRePing(String target, List<Pair<String, Message>> result) {
+        int size = 10;
         List<String> a = otherProcesses.stream()
-                .filter(x -> !ackWaitingProcess.keySet().contains(x) && !reAckWaitingProcess.keySet().contains(x))
+                .filter(x -> !ackWaitingProcess.keySet().contains(x) && !reAckWaitingProcess.keySet().contains(x) && !x.equals(target))
                 .collect(Collectors.toList());
-        Collections.shuffle(a);
-        a = a.stream().limit(times).collect(Collectors.toList());
 
-        List<String> proxies = new ArrayList<>();
-        if (a.size() == times) {
+        List<String> proxies;
+        if (a.size() != 0) {
+            Collections.shuffle(a);
             proxies = a;
         } else {
-            proxies = new ArrayList<>(a);
-            a = otherProcesses.stream().filter(x -> !reAckWaitingProcess.keySet().contains(x)).collect(Collectors.toList());
-
-//            if (a.size() == 0) {
-//                a = new ArrayList<>(otherProcesses);
-//                Collections.shuffle(a);
-//            }
-
-            while (proxies.size() != times && a.size() != 0) {
-                proxies.add(a.get(rd.nextInt(a.size())));
+            proxies = otherProcesses.stream().filter(x -> !reAckWaitingProcess.keySet().contains(x) && !x.equals(target)).collect(Collectors.toList());
+            if (proxies.size() < size) {
+                proxies.addAll(otherProcesses.stream().filter(x -> !proxies.contains(x) && !x.equals(target)).limit(size - proxies.size()).collect(Collectors.toList()));
             }
         }
-        for (String proxy : proxies) {
-            reAckWaitingProcess.put(target, tics);
-            result.add(new Pair<>(proxy, new PingReqMsg(target)));
+
+        reAckWaitingProcess.put(target, tics);
+        for (int i = 0; i < size; i++) {
+            result.add(new Pair<>(proxies.get(rd.nextInt(proxies.size())), new PingReqMsg(target)));
         }
     }
 
@@ -131,21 +131,22 @@ public class ActStrategy {
             if (m instanceof PingReqMsg) {
                 PingReqMsg msg = (PingReqMsg) m;
                 requests.put(msg.targetId, msg.sender);
-
                 result.add(new Pair<>(msg.targetId, new PingMsg()));
             } else if (m instanceof PingMsg) {
                 PingMsg msg = (PingMsg) m;
-                result.add(new Pair<>(msg.getOriginalSender(), new AckMsg()));
+                result.add(new Pair<>(msg.sender, new AckMsg()));
             } else if (m instanceof AckMsg) {
                 AckMsg msg = (AckMsg) m;
 
-                if (requests.containsKey(msg.getOriginalSender())) {
-                    result.add(new Pair<>(requests.get(msg.getOriginalSender()), new AckMsg(msg.getOriginalSender())));
+                if (requests.containsKey(msg.sender)) {
+                    result.add(new Pair<>(requests.get(msg.sender), new AckMsg(msg.sender)));
                     requests.remove(msg.getOriginalSender());
                 }
 
                 ackWaitingProcess.remove(msg.getOriginalSender());
+                ackWaitingProcess.remove(msg.sender);
                 reAckWaitingProcess.remove(msg.getOriginalSender());
+                reAckWaitingProcess.remove(msg.sender);
             } else if (m instanceof PFDMessage) {
                 PFDMessage msg = (PFDMessage) m;
 
@@ -154,9 +155,7 @@ public class ActStrategy {
                 ackWaitingProcess.remove(msg.getProcessID());
                 reAckWaitingProcess.remove(msg.getProcessID());
                 otherProcesses.remove(msg.getProcessID());
-            } else if (m instanceof ReAckMsg) {
-                ReAckMsg msg = (ReAckMsg) m;
-                result.add(new Pair<>(msg.targetId, new AckMsg(msg.sender)));
+                requests.remove(msg.getProcessID());
             }
         }
     }

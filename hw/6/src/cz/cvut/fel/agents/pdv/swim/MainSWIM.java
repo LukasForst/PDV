@@ -22,7 +22,7 @@ public class MainSWIM {
         // minReliability       .... minimalni pravdepodobnost doruceni zpravy
         // accuracy             .... maximalni pocet procesu mylne prohlasenych za mrtve
 
-        Simulation sim = new Simulation(new SWIMDSConfig(10, 2, 0.1, 10, 400, 0.1, 2));
+        Simulation sim = new Simulation(new SWIMDSConfig(10, 2, 0.1, 100, 400, 0.1, 2));
         sim.run();
     }
 
