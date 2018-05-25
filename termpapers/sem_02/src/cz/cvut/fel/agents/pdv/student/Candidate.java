@@ -13,7 +13,7 @@ public class Candidate extends Stage {
         super(process, null, process.dbProvider.getEpoch());
         electionStarted = process.currentTime;
         dbProvider.increaseEpoch();
-        super.process.otherProcessesInCluster.forEach(x -> send(x, new ElectionRequest(dbProvider.getLastLogItem(), dbProvider.getEpoch())));
+        super.process.otherProcessesInCluster.forEach(x -> send(x, new ElectionRequest(dbProvider)));
     }
 
     @Override
@@ -31,13 +31,14 @@ public class Candidate extends Stage {
                 }
             } else if (message instanceof ElectionRequest) {
                 ElectionRequest msg = (ElectionRequest) message;
-                if (msg.newEpoch > dbProvider.getEpoch()) {
-                    process.sendMessage(msg.sender, new ElectionVote(msg.newEpoch));
+                if (msg.epoch > dbProvider.getEpoch()) {
+                    dbProvider.setEpoch(msg.epoch);
+                    process.sendMessage(msg.sender, new ElectionVote(dbProvider));
                     //todo what to do with rest of messages
-                    return new Follower(process, null, msg.newEpoch);
+                    return new Follower(process, null, dbProvider.getEpoch());
                 }
             } else if (message instanceof LeaderMessage) {
-                LeaderMessage msg = (LeaderMessage) message;
+                RaftMessage msg = (RaftMessage) message;
                 if (msg.epoch >= dbProvider.getEpoch()) {
                     //todo what to do with messages
                     return new Follower(process, msg.sender, msg.epoch);

@@ -1,83 +1,102 @@
 package cz.cvut.fel.agents.pdv.student;
 
 import cz.cvut.fel.agents.pdv.dsand.Message;
+import cz.cvut.fel.agents.pdv.dsand.Pair;
+import cz.cvut.fel.agents.pdv.evaluation.StoreOperationEnums;
 
-abstract class LeaderMessage extends Message{
+interface LeaderMessage {
+}
+
+interface FollowerMessage {
+}
+
+interface CandidateMessage {
+}
+
+abstract class RaftMessage extends Message {
     final LogItem lasItemInLog;
     final int epoch;
+    final int nextIndex;
 
-    protected LeaderMessage(LogItem lasItemInLog, int epoch) {
+    RaftMessage(int nextIndex, int epoch, LogItem lasItemInLog) {
         this.lasItemInLog = lasItemInLog;
         this.epoch = epoch;
+        this.nextIndex = nextIndex;
     }
 
-    int getLastIndex(){
-        return lasItemInLog == null ? 0 : lasItemInLog.index;
+    RaftMessage(DatabaseProvider dbProvider) {
+        this(dbProvider.getNextIndex(), dbProvider.getEpoch(), dbProvider.getLastLogItem());
     }
-}
-
-abstract class FollowerMessage extends Message{
 
 }
 
-abstract class CandidateMessage extends Message{
+class AppendEntry extends RaftMessage implements LeaderMessage {
+    final Pair<StoreOperationEnums, Pair<String, String>> operation;
 
-}
-
-class AppendEntry extends LeaderMessage {
-    final LogItem newEntry;
-
-    AppendEntry(LogItem lastItem, int epoch,LogItem newEntry) {
-        super(lastItem, epoch);
-        this.newEntry = newEntry;
+    AppendEntry(int nextIndex, int epoch, LogItem lastItem, Pair<StoreOperationEnums, Pair<String, String>> operation) {
+        super(nextIndex, epoch, lastItem);
+        this.operation = new Pair<>(operation.getFirst(), new Pair<>(operation.getSecond().getFirst(), operation.getSecond().getSecond()));
     }
-}
 
-class AppendEntryConfirmed extends LeaderMessage{
-
-    AppendEntryConfirmed(LogItem logItemToPerform, int epoch) {
-        super(logItemToPerform, epoch);
+    AppendEntry(DatabaseProvider dbProvider, Pair<StoreOperationEnums, Pair<String, String>> operation) {
+        super(dbProvider);
+        this.operation = new Pair<>(operation.getFirst(), new Pair<>(operation.getSecond().getFirst(), operation.getSecond().getSecond()));
     }
 }
 
-class AppendEntryResponse extends FollowerMessage{
+class AppendEntryConfirmed extends RaftMessage implements LeaderMessage {
+
+    AppendEntryConfirmed(int nextIndex, int epoch, LogItem lasItemInLog) {
+        super(nextIndex, epoch, lasItemInLog);
+    }
+
+    AppendEntryConfirmed(DatabaseProvider provider) {
+        super(provider);
+    }
+}
+
+class AppendEntryResponse extends RaftMessage implements FollowerMessage {
     final boolean canPerformOperation;
-    final LogItem lastLogItem;
 
-    AppendEntryResponse(boolean canPerformOperation, LogItem lastLogItem) {
+    AppendEntryResponse(boolean canPerformOperation, int nextIndex, int epoch, LogItem lasItemInLog) {
+        super(nextIndex, epoch, lasItemInLog);
         this.canPerformOperation = canPerformOperation;
-        this.lastLogItem = lastLogItem;
+    }
+
+    AppendEntryResponse(DatabaseProvider provider, boolean canPerformOperation) {
+        super(provider);
+        this.canPerformOperation = canPerformOperation;
     }
 }
 
-class HearthBeat extends LeaderMessage{
-    final int epoch;
+class HearthBeat extends RaftMessage implements LeaderMessage {
+    HearthBeat(int nextIndex, int epoch, LogItem lasItemInLog) {
+        super(nextIndex, epoch, lasItemInLog);
+    }
 
-    HearthBeat(LogItem logItem, int epoch) {
-        super(logItem, epoch);
-        this.epoch = epoch;
+    HearthBeat(DatabaseProvider provider) {
+        super(provider);
     }
 }
 
-class ElectionRequest extends CandidateMessage {
-    final LogItem lastLogItem;
-    final int newEpoch;
-
-    ElectionRequest(LogItem lastLogItem, int newEpoch) {
-        this.lastLogItem = lastLogItem;
-        this.newEpoch = newEpoch;
+class ElectionRequest extends RaftMessage implements CandidateMessage {
+    ElectionRequest(int nextIndex, int epoch, LogItem lasItemInLog) {
+        super(nextIndex, epoch, lasItemInLog);
     }
 
-    ElectionRequest(int newEpoch){
-        lastLogItem = null;
-        this.newEpoch = newEpoch;
+    ElectionRequest(DatabaseProvider provider) {
+        super(provider);
     }
+
 }
 
-class ElectionVote extends FollowerMessage{
-    final int epoch;
-
-    public ElectionVote(int epoch) {
-        this.epoch = epoch;
+class ElectionVote extends RaftMessage implements FollowerMessage {
+    ElectionVote(int nextIndex, int epoch, LogItem lasItemInLog) {
+        super(nextIndex, epoch, lasItemInLog);
     }
+
+    ElectionVote(DatabaseProvider provider) {
+        super(provider);
+    }
+
 }

@@ -19,12 +19,21 @@ class DatabaseProvider {
         return epoch;
     }
 
-    public void setEpoch(int epoch) {
+    int getNextIndex() {
+        return log.size();
+    }
+
+
+    void setEpoch(int epoch) {
         this.epoch = epoch;
     }
 
     void increaseEpoch() {
         epoch++;
+    }
+
+    boolean canInsertInLog(int nextIndex, int epoch, LogItem lastLogItem) {
+        return nextIndex == log.size() && this.epoch == epoch && LogItem.equals(lastLogItem, getLastLogItem());
     }
 
     Pair<Boolean, String> performReadOperation(StoreOperationEnums operation, Pair<String, String> content) {

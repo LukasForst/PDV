@@ -28,13 +28,8 @@ class Follower extends Stage {
                 ClientRequestWhoIsLeader msg = (ClientRequestWhoIsLeader) message;
                 send(msg.sender, new ServerResponseLeader(msg.getRequestId(), process.getCurrentLeader()));
             } else if (message instanceof LeaderMessage) {
-                LeaderMessage msg = (LeaderMessage) message;
-                if (msg.epoch >= dbProvider.getEpoch()) {
-                    dbProvider.setEpoch(msg.epoch);
-                    process.currentLeader = msg.sender;
-                    lastPingFromLeader = process.currentTime;
-                }
-
+                RaftMessage msg = (RaftMessage) message;
+                processLeaderMessage(msg);
             } else if (message instanceof ElectionRequest) {
                 ElectionRequest msg = (ElectionRequest) message;
                 voteIfCan(msg);
@@ -47,20 +42,38 @@ class Follower extends Stage {
         return checkLeaderActivity();
     }
 
+    private void processLeaderMessage(RaftMessage leaderMessage) {
+        if (leaderMessage.epoch < dbProvider.getEpoch()) return;
+
+        dbProvider.setEpoch(leaderMessage.epoch);
+        process.currentLeader = leaderMessage.sender;
+        lastPingFromLeader = process.currentTime;
+
+        if (leaderMessage instanceof AppendEntry) {
+            AppendEntry msg = (AppendEntry) leaderMessage;
+
+
+        } else if (leaderMessage instanceof AppendEntryConfirmed) {
+            AppendEntryConfirmed msg = (AppendEntryConfirmed) leaderMessage;
+
+        }
+    }
+
     private void voteIfCan(ElectionRequest msg) {
         if (canIVote(msg)) {
-            dbProvider.setEpoch(msg.newEpoch);
+            dbProvider.setEpoch(msg.epoch);
             votedInEpochs.add(dbProvider.getEpoch());
-            send(msg.sender, new ElectionVote(dbProvider.getEpoch()));
+            send(msg.sender, new ElectionVote(dbProvider));
         }
     }
 
     private boolean canIVote(ElectionRequest msg) {
-        if (votedInEpochs.contains(msg.newEpoch)) return false;
-        if (msg.newEpoch <= dbProvider.getEpoch()) return false;
-        if (msg.lastLogItem == null && dbProvider.getLastLogItem() == null) return true;
-        if (msg.lastLogItem == null) return false;
-        return msg.lastLogItem.index >= dbProvider.getLastLogItem().index;
+        if (votedInEpochs.contains(msg.epoch)) return false;
+        if (msg.epoch <= dbProvider.getEpoch()) return false;
+        if (msg.nextIndex < dbProvider.getNextIndex()) return false;
+        if (msg.lasItemInLog == null && dbProvider.getLastLogItem() == null) return true;
+        if (msg.lasItemInLog == null) return false;
+        return msg.lasItemInLog.index >= dbProvider.getLastLogItem().index;
     }
 
     private Stage checkLeaderActivity() {
