@@ -1,6 +1,8 @@
 package cz.cvut.fel.agents.pdv.student;
 
 import cz.cvut.fel.agents.pdv.dsand.Message;
+import cz.cvut.fel.agents.pdv.raft.messages.ClientRequest;
+import cz.cvut.fel.agents.pdv.raft.messages.ServerResponseLeader;
 
 import java.util.*;
 
@@ -19,41 +21,62 @@ public class Candidate extends Stage {
     @Override
     public Stage act(Queue<Message> inbox) {
         List<Message> notForMe = new LinkedList<>();
+        Stage resultStage = null;
         String myId = null;
-        while (!inbox.isEmpty()) {
+
+        while (!inbox.isEmpty() && resultStage == null) {
             Message message = inbox.poll();
             myId = Objects.requireNonNull(message).recipient;
 
             if (message instanceof ElectionVote) {
-                ElectionVote msg = (ElectionVote) message;
-                if (msg.epoch == dbProvider.getEpoch()) {
-                    votedForMe.add(msg.sender);
-                }
+                electionVote((ElectionVote) message);
+
             } else if (message instanceof ElectionRequest) {
-                ElectionRequest msg = (ElectionRequest) message;
-                if (msg.epoch > dbProvider.getEpoch()) {
-                    dbProvider.setEpoch(msg.epoch);
-                    process.sendMessage(msg.sender, new ElectionVote(dbProvider));
-                    //todo what to do with rest of messages
-                    return new Follower(process, null, dbProvider.getEpoch());
-                }
+                resultStage = electionRequest((ElectionRequest) message);
+
             } else if (message instanceof LeaderMessage) {
-                RaftMessage msg = (RaftMessage) message;
-                if (msg.epoch >= dbProvider.getEpoch()) {
-                    //todo what to do with messages
-                    return new Follower(process, msg.sender, msg.epoch);
-                }
+                resultStage = leaderMessage((RaftMessage) message, inbox);
+
             } else {
                 notForMe.add(message);
             }
-
-            //todo potentially handle all other requests
         }
         inbox.addAll(notForMe);
-        return evaluateElection(myId);
+        return evaluateElection(myId, resultStage);
     }
 
-    private Stage evaluateElection(String myId) {
+    private void electionVote(ElectionVote msg) {
+        if (msg.epoch == dbProvider.getEpoch()) {
+            votedForMe.add(msg.sender);
+        }
+    }
+
+    private Stage electionRequest(ElectionRequest msg) {
+        if (msg.epoch > dbProvider.getEpoch()) {
+            dbProvider.setEpoch(msg.epoch);
+            process.sendMessage(msg.sender, new ElectionVote(dbProvider));
+            return new Follower(process, null, dbProvider.getEpoch());
+        }
+        return null;
+    }
+
+    private Stage leaderMessage(RaftMessage msg, Queue<Message> inbox) {
+        if (msg.epoch >= dbProvider.getEpoch()) {
+            inbox.stream()
+                    .filter(x -> x instanceof ClientRequest)
+                    .map(x -> (ClientRequest) x)
+                    .forEach(x -> send(x.sender, new ServerResponseLeader(x.getRequestId(), msg.sender)));
+            inbox.removeIf(x -> x instanceof ClientRequest);
+            inbox.add(msg);
+
+            return new Follower(process, msg.sender, msg.epoch);
+        }
+        return null;
+    }
+
+
+    private Stage evaluateElection(String myId, Stage resultStage) {
+        if (resultStage != null) return resultStage;
         if ((process.otherProcessesInCluster.size() + 1) / 2 < (votedForMe.size()) + 1) {
             //I won leadership, cool
             return new Leader(process, myId, dbProvider.getEpoch());

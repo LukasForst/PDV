@@ -3,6 +3,12 @@ package cz.cvut.fel.agents.pdv.student;
 import cz.cvut.fel.agents.pdv.dsand.Message;
 import cz.cvut.fel.agents.pdv.dsand.Pair;
 import cz.cvut.fel.agents.pdv.evaluation.StoreOperationEnums;
+import cz.cvut.fel.agents.pdv.raft.messages.ClientRequestWithContent;
+
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
 
 interface LeaderMessage {
 }
@@ -32,15 +38,18 @@ abstract class RaftMessage extends Message {
 
 class AppendEntry extends RaftMessage implements LeaderMessage {
     final Pair<StoreOperationEnums, Pair<String, String>> operation;
+    final String requestId;
 
-    AppendEntry(int nextIndex, int epoch, LogItem lastItem, Pair<StoreOperationEnums, Pair<String, String>> operation) {
+    AppendEntry(int nextIndex, int epoch, LogItem lastItem, Pair<StoreOperationEnums, Pair<String, String>> operation, String requestId) {
         super(nextIndex, epoch, lastItem);
         this.operation = new Pair<>(operation.getFirst(), new Pair<>(operation.getSecond().getFirst(), operation.getSecond().getSecond()));
+        this.requestId = requestId;
     }
 
-    AppendEntry(DatabaseProvider dbProvider, Pair<StoreOperationEnums, Pair<String, String>> operation) {
+    AppendEntry(DatabaseProvider dbProvider, Pair<StoreOperationEnums, Pair<String, String>> operation, String requestId) {
         super(dbProvider);
         this.operation = new Pair<>(operation.getFirst(), new Pair<>(operation.getSecond().getFirst(), operation.getSecond().getSecond()));
+        this.requestId = requestId;
     }
 }
 
@@ -57,15 +66,33 @@ class AppendEntryConfirmed extends RaftMessage implements LeaderMessage {
 
 class AppendEntryResponse extends RaftMessage implements FollowerMessage {
     final boolean canPerformOperation;
+    final String requestId;
 
-    AppendEntryResponse(boolean canPerformOperation, int nextIndex, int epoch, LogItem lasItemInLog) {
+    AppendEntryResponse(boolean canPerformOperation, int nextIndex, int epoch, LogItem lasItemInLog, String requestId) {
         super(nextIndex, epoch, lasItemInLog);
         this.canPerformOperation = canPerformOperation;
+        this.requestId = requestId;
     }
 
-    AppendEntryResponse(DatabaseProvider provider, boolean canPerformOperation) {
+    AppendEntryResponse(DatabaseProvider provider, boolean canPerformOperation, String requestId) {
         super(provider);
         this.canPerformOperation = canPerformOperation;
+        this.requestId = requestId;
+    }
+}
+
+class RecreateLogAndDataDeepCopy extends RaftMessage {
+    final List<LogItem> log;
+    final Map<String, String> data;
+
+    RecreateLogAndDataDeepCopy(int nextIndex, int epoch, LogItem lasItemInLog, List<LogItem> log, Map<String, String> data) {
+        super(nextIndex, epoch, lasItemInLog);
+        this.log = log.stream().map(x -> new LogItem(x.epoch, x.index, x.operation, new Pair<>(x.data.getFirst(), x.data.getSecond()))).collect(Collectors.toList());
+        this.data = new HashMap<>(data);
+    }
+
+    RecreateLogAndDataDeepCopy(DatabaseProvider dbProvider) {
+        this(dbProvider.getNextIndex(), dbProvider.getEpoch(), dbProvider.getLastLogItem(), dbProvider.log, dbProvider.data);
     }
 }
 
@@ -98,5 +125,12 @@ class ElectionVote extends RaftMessage implements FollowerMessage {
     ElectionVote(DatabaseProvider provider) {
         super(provider);
     }
+}
 
+class ForwardedClientRequest extends Message {
+    final ClientRequestWithContent<StoreOperationEnums, Pair<String, String>> originalMessage;
+
+    public ForwardedClientRequest(ClientRequestWithContent<StoreOperationEnums, Pair<String, String>> originalMessage) {
+        this.originalMessage = originalMessage;
+    }
 }

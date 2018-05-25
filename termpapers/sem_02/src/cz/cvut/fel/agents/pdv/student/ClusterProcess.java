@@ -12,7 +12,7 @@ import java.util.function.BiConsumer;
  * distribuovane databaze v danem okamziku.
  * <p>
  * Vasi implementaci budeme testovat v ruznych scenarich (viz evaluation.RaftRun a oficialni
- * zadani). Nasim cilem je, abyste zvladli implementovat jednoduchou distribuovanou key/value
+ * zadani). Nasim cilem je, abyste zvladli implementovat jednoduchou distribuovanou key/data
  * databazi s garancemi podle RAFT.
  */
 public class ClusterProcess extends RaftProcess<Map<String, String>> {

@@ -27,20 +27,21 @@ import java.util.stream.IntStream;
 public class RaftRun {
 
     public static void main(String[] args) {
-        stressTestLeader();
+        stressTestLogReplication(1);
+        stressTestLeader(50);
     }
 
     private static void stressAll() {
         for (int i = 0; i < 10; i++) {
-            stressTestLeader();
-            stressTestKeyValue();
-            stressTestLogReplication();
+            stressTestLeader(50);
+            stressTestLogReplication(50);
+            stressTestKeyValue(50);
         }
     }
 
     // Scenar: Volba leadera
-    private static void stressTestLeader() {
-        for (int i = 0; i < 50; i++) {
+    private static void stressTestLeader(int count) {
+        for (int i = 0; i < count; i++) {
             printLineDelimiter();
 
             ScenarioForLeaderSelection scenarioForLeaderSelection = ScenarioForLeaderSelection.builder()
@@ -61,8 +62,8 @@ public class RaftRun {
     }
 
     // Scenar: Replikace logu napric clusterem
-    private static void stressTestLogReplication() {
-        for (int i = 0; i < 50; i++) {
+    private static void stressTestLogReplication(int count) {
+        for (int i = 0; i < count; i++) {
             printLineDelimiter();
 
             ScenarioForLogReplication scenarioForLogReplication = ScenarioForLogReplication.builder()
@@ -85,8 +86,8 @@ public class RaftRun {
     }
 
     // Scenar: Distribuovana key/value databaze
-    private static void stressTestKeyValue() {
-        for (int i = 0; i < 50; i++) {
+    private static void stressTestKeyValue(int count) {
+        for (int i = 0; i < count; i++) {
             printLineDelimiter();
 
             ScenarioForKVStore scenarioForKVStore = ScenarioForKVStore.builder()

@@ -1,7 +1,7 @@
 package cz.cvut.fel.agents.pdv.student;
 
 import cz.cvut.fel.agents.pdv.dsand.Message;
-import cz.cvut.fel.agents.pdv.raft.messages.ClientRequestWhoIsLeader;
+import cz.cvut.fel.agents.pdv.raft.messages.ClientRequest;
 import cz.cvut.fel.agents.pdv.raft.messages.ServerResponseLeader;
 
 import java.util.HashSet;
@@ -15,7 +15,7 @@ class Follower extends Stage {
 
     Follower(ClusterProcess process, String leader, int epoch) {
         super(process, leader, epoch);
-        lastPingFromLeader = process.currentTime;
+        lastPingFromLeader = super.process.currentTime;
     }
 
     @Override
@@ -24,15 +24,18 @@ class Follower extends Stage {
         while (!inbox.isEmpty()) {
             Message message = inbox.poll();
 
-            if (message instanceof ClientRequestWhoIsLeader) {
-                ClientRequestWhoIsLeader msg = (ClientRequestWhoIsLeader) message;
-                send(msg.sender, new ServerResponseLeader(msg.getRequestId(), process.getCurrentLeader()));
+            if (message instanceof ClientRequest) {
+                ClientRequest msg = (ClientRequest) message;
+                send(msg.sender, new ServerResponseLeader(msg.getRequestId(), process.currentLeader));
             } else if (message instanceof LeaderMessage) {
                 RaftMessage msg = (RaftMessage) message;
                 processLeaderMessage(msg);
             } else if (message instanceof ElectionRequest) {
                 ElectionRequest msg = (ElectionRequest) message;
                 voteIfCan(msg);
+            } else if (message instanceof RecreateLogAndDataDeepCopy) {
+                RecreateLogAndDataDeepCopy msg = (RecreateLogAndDataDeepCopy) message;
+                dbProvider.replicateLog(msg);
             } else {
                 notForMe.add(message);
             }
@@ -43,7 +46,9 @@ class Follower extends Stage {
     }
 
     private void processLeaderMessage(RaftMessage leaderMessage) {
-        if (leaderMessage.epoch < dbProvider.getEpoch()) return;
+        if (leaderMessage.epoch < dbProvider.getEpoch()) {
+            return;
+        }
 
         dbProvider.setEpoch(leaderMessage.epoch);
         process.currentLeader = leaderMessage.sender;
@@ -51,11 +56,15 @@ class Follower extends Stage {
 
         if (leaderMessage instanceof AppendEntry) {
             AppendEntry msg = (AppendEntry) leaderMessage;
-
-
+            if (dbProvider.compareLastLog(msg)) {
+                dbProvider.addNonVerified(msg);
+                send(msg.sender, new AppendEntryResponse(dbProvider, true, msg.requestId));
+            } else {
+                send(msg.sender, new AppendEntryResponse(dbProvider, false, msg.requestId));
+            }
         } else if (leaderMessage instanceof AppendEntryConfirmed) {
             AppendEntryConfirmed msg = (AppendEntryConfirmed) leaderMessage;
-
+            dbProvider.writeNonVerified(msg);
         }
     }
 
