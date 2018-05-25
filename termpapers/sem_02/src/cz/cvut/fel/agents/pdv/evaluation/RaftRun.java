@@ -27,71 +27,22 @@ import java.util.stream.IntStream;
 public class RaftRun {
 
     public static void main(String[] args) {
-
-        printLineDelimiter();
-
-        // Scenar: Volba leadera
-        ScenarioForLeaderSelection scenarioForLeaderSelection = ScenarioForLeaderSelection.builder()
-                .requestPeriod(1)
-                .countOfFailures(1)
-                .lengthOfFailure(20)
-                .spanBetweenFailures(50)
-                .stepsOfSimulation(120)
-                .expectedNumberOfProcessesInPartition(3)
-                .reconnectProcess(false)
-                .build();
-        RaftSimulation<ClientCoordinatorForLeaderSelection> simulationLeader = new RaftSimulation<>(
-                new RaftDSConfiguration<>(scenarioForLeaderSelection, "Volba leadera"));
-        simulationLeader.run();
-
         stressTestLeader();
-
-        printLineDelimiter();
-
-        // Scenar: Replikace logu napric clusterem
-        ScenarioForLogReplication scenarioForLogReplication = ScenarioForLogReplication.builder()
-                .countOfFailures(1)
-                .lengthOfFailure(20)
-                .spanBetweenFailures(50)
-                .expectedNumberOfProcessesInPartition(3)
-                .stepsOfSimulation(200)
-                .stopRequestBeforeEndOfSimulation(80)
-                .reconnectProcess(true)
-                .retryInterval(1)
-                .maxUncommittedRequest(1)
-                .build();
-        RaftSimulation<ClientCoordinatorForLogReplication> simulationLog = new RaftSimulation<>(
-                new RaftDSConfiguration<>(scenarioForLogReplication, "Replikace logu napric clusterem"));
-//    simulationLog.run();
-
-        printLineDelimiter();
-
-        // Scenar: Distribuovana key/value databaze
-        ScenarioForKVStore scenarioForKVStore = ScenarioForKVStore.builder()
-                .countOfFailures(1)
-                .lengthOfFailure(20)
-                .spanBetweenFailures(50)
-                .expectedNumberOfProcessesInPartition(3)
-                .stepsOfSimulation(250)
-                .stopRequestBeforeEndOfSimulation(100)
-                .reconnectProcess(false)
-                .retryInterval(1)
-                .maxUncommittedRequest(1)
-                .requestPeriod(3)
-                .build();
-        RaftSimulation<ClientCoordinatorForKVStore> simulationStore = new RaftSimulation<>(
-                new RaftDSConfiguration<>(scenarioForKVStore, "Funkcni key/value databaze"));
-//    simulationStore.run();
-
-        printLineDelimiter();
-
     }
 
+    private static void stressAll() {
+        for (int i = 0; i < 10; i++) {
+            stressTestLeader();
+            stressTestKeyValue();
+            stressTestLogReplication();
+        }
+    }
+
+    // Scenar: Volba leadera
     private static void stressTestLeader() {
         for (int i = 0; i < 50; i++) {
             printLineDelimiter();
 
-            // Scenar: Volba leadera
             ScenarioForLeaderSelection scenarioForLeaderSelection = ScenarioForLeaderSelection.builder()
                     .requestPeriod(1)
                     .countOfFailures(1)
@@ -104,6 +55,55 @@ public class RaftRun {
             RaftSimulation<ClientCoordinatorForLeaderSelection> simulationLeader = new RaftSimulation<>(
                     new RaftDSConfiguration<>(scenarioForLeaderSelection, "Volba leadera"));
             simulationLeader.run();
+
+            printLineDelimiter();
+        }
+    }
+
+    // Scenar: Replikace logu napric clusterem
+    private static void stressTestLogReplication() {
+        for (int i = 0; i < 50; i++) {
+            printLineDelimiter();
+
+            ScenarioForLogReplication scenarioForLogReplication = ScenarioForLogReplication.builder()
+                    .countOfFailures(1)
+                    .lengthOfFailure(20)
+                    .spanBetweenFailures(50)
+                    .expectedNumberOfProcessesInPartition(3)
+                    .stepsOfSimulation(200)
+                    .stopRequestBeforeEndOfSimulation(80)
+                    .reconnectProcess(true)
+                    .retryInterval(1)
+                    .maxUncommittedRequest(1)
+                    .build();
+            RaftSimulation<ClientCoordinatorForLogReplication> simulationLog = new RaftSimulation<>(
+                    new RaftDSConfiguration<>(scenarioForLogReplication, "Replikace logu napric clusterem"));
+            simulationLog.run();
+
+            printLineDelimiter();
+        }
+    }
+
+    // Scenar: Distribuovana key/value databaze
+    private static void stressTestKeyValue() {
+        for (int i = 0; i < 50; i++) {
+            printLineDelimiter();
+
+            ScenarioForKVStore scenarioForKVStore = ScenarioForKVStore.builder()
+                    .countOfFailures(1)
+                    .lengthOfFailure(20)
+                    .spanBetweenFailures(50)
+                    .expectedNumberOfProcessesInPartition(3)
+                    .stepsOfSimulation(250)
+                    .stopRequestBeforeEndOfSimulation(100)
+                    .reconnectProcess(false)
+                    .retryInterval(1)
+                    .maxUncommittedRequest(1)
+                    .requestPeriod(3)
+                    .build();
+            RaftSimulation<ClientCoordinatorForKVStore> simulationStore = new RaftSimulation<>(
+                    new RaftDSConfiguration<>(scenarioForKVStore, "Funkcni key/value databaze"));
+            simulationStore.run();
 
             printLineDelimiter();
         }
