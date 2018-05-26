@@ -1,6 +1,5 @@
 package cz.cvut.fel.agents.pdv.student;
 
-import cz.cvut.fel.agents.pdv.dsand.Pair;
 import cz.cvut.fel.agents.pdv.evaluation.StoreOperationEnums;
 
 import java.util.*;
@@ -53,18 +52,17 @@ class DatabaseProvider {
     }
 
     private void writeNonVerified(LogItem lastItemInLog) {
-        if (LogItem.equals(lastItemInLog, notVerified)) {
-            assert notVerified != null;
-            assert notVerified.operation != StoreOperationEnums.GET;
+        assert notVerified != null;
+        assert LogItem.equals(lastItemInLog, notVerified);
+        assert notVerified.operation != StoreOperationEnums.GET;
 
-            log.add(notVerified);
-            if (notVerified.operation == StoreOperationEnums.PUT) {
-                data.put(notVerified.data.getFirst(), notVerified.data.getSecond());
-            } else if (notVerified.operation == StoreOperationEnums.APPEND) {
-                data.put(notVerified.data.getFirst(), data.getOrDefault(notVerified.data.getFirst(), "") + notVerified.data.getSecond());
-            }
-            notVerified = null;
+        log.add(notVerified);
+        if (notVerified.operation == StoreOperationEnums.PUT) {
+            data.put(notVerified.data.getFirst(), notVerified.data.getSecond());
+        } else if (notVerified.operation == StoreOperationEnums.APPEND) {
+            data.put(notVerified.data.getFirst(), data.getOrDefault(notVerified.data.getFirst(), "") + notVerified.data.getSecond());
         }
+        notVerified = null;
     }
 
     void writeNonVerified(AppendEntryConfirmed msg) {
@@ -83,42 +81,9 @@ class DatabaseProvider {
         return data.getOrDefault(key, null);
     }
 
-    Pair<Boolean, String> performReadOperation(StoreOperationEnums operation, Pair<String, String> content) {
-        if (operation == StoreOperationEnums.GET) {
-            return new Pair<>(true, data.getOrDefault(content.getFirst(), null));
-        }
-        return new Pair<>(false, null);
-    }
 
     LogItem getLastLogItem() {
         return log.size() == 0 ? null : log.get(log.size() - 1);
     }
 
-    void executeLastOnData() {
-        LogItem it = getLastLogItem();
-        executeOnData(it.operation, it.data);
-    }
-
-    void executeOnData(StoreOperationEnums operation, Pair<String, String> content) {
-        switch (operation) {
-            case PUT:
-                data.put(content.getFirst(), content.getSecond());
-                break;
-            case APPEND:
-                data.put(content.getFirst(), data.getOrDefault(content.getFirst(), "") + content.getSecond());
-                break;
-        }
-    }
-
-    boolean performLogWriteOperation(StoreOperationEnums operation, Pair<String, String> content, LogItem lastLogItem) {
-        if (!canPerform(lastLogItem)) return false;
-        log.add(new LogItem(epoch, log.size(), operation, content));
-        return true;
-    }
-
-    private boolean canPerform(LogItem last) {
-        if (log.isEmpty() && last == null) return true;
-        if (log.isEmpty()) return false;
-        return LogItem.equals(getLastLogItem(), last);
-    }
 }

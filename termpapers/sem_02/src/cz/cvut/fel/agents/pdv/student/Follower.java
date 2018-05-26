@@ -27,15 +27,19 @@ class Follower extends Stage {
             if (message instanceof ClientRequest) {
                 ClientRequest msg = (ClientRequest) message;
                 send(msg.sender, new ServerResponseLeader(msg.getRequestId(), process.currentLeader));
+
             } else if (message instanceof LeaderMessage) {
                 RaftMessage msg = (RaftMessage) message;
                 processLeaderMessage(msg);
+
             } else if (message instanceof ElectionRequest) {
                 ElectionRequest msg = (ElectionRequest) message;
                 voteIfCan(msg);
+
             } else if (message instanceof RecreateLogAndDataDeepCopy) {
                 RecreateLogAndDataDeepCopy msg = (RecreateLogAndDataDeepCopy) message;
                 dbProvider.replicateLog(msg);
+
             } else {
                 notForMe.add(message);
             }
@@ -55,16 +59,21 @@ class Follower extends Stage {
         lastPingFromLeader = process.currentTime;
 
         if (leaderMessage instanceof AppendEntry) {
-            AppendEntry msg = (AppendEntry) leaderMessage;
-            if (dbProvider.compareLastLog(msg)) {
-                dbProvider.addNonVerified(msg);
-                send(msg.sender, new AppendEntryResponse(dbProvider, true, msg.requestId));
-            } else {
-                send(msg.sender, new AppendEntryResponse(dbProvider, false, msg.requestId));
-            }
+            appendEntry((AppendEntry) leaderMessage);
+
         } else if (leaderMessage instanceof AppendEntryConfirmed) {
             AppendEntryConfirmed msg = (AppendEntryConfirmed) leaderMessage;
             dbProvider.writeNonVerified(msg);
+
+        }
+    }
+
+    private void appendEntry(AppendEntry msg) {
+        if (dbProvider.compareLastLog(msg)) {
+            dbProvider.addNonVerified(msg);
+            send(msg.sender, new AppendEntryResponse(dbProvider, true, msg.requestId));
+        } else {
+            send(msg.sender, new AppendEntryResponse(dbProvider, false, msg.requestId));
         }
     }
 
@@ -78,11 +87,11 @@ class Follower extends Stage {
 
     private boolean canIVote(ElectionRequest msg) {
         if (votedInEpochs.contains(msg.epoch)) return false;
-        if (msg.epoch <= dbProvider.getEpoch()) return false;
-        if (msg.nextIndex < dbProvider.getNextIndex()) return false;
+        if (msg.epoch < dbProvider.getEpoch()) return false;
+        if (msg.epoch == dbProvider.getEpoch() && msg.nextIndex < dbProvider.getNextIndex()) return false;
         if (msg.lasItemInLog == null && dbProvider.getLastLogItem() == null) return true;
         if (msg.lasItemInLog == null) return false;
-        return msg.lasItemInLog.index >= dbProvider.getLastLogItem().index;
+        return msg.nextIndex >= dbProvider.getNextIndex();
     }
 
     private Stage checkLeaderActivity() {

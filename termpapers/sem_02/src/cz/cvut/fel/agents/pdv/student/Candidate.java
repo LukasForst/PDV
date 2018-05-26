@@ -52,13 +52,21 @@ public class Candidate extends Stage {
     }
 
     private Stage electionRequest(ElectionRequest msg) {
-        if (msg.epoch > dbProvider.getEpoch()) {
+        if (canIVote(msg)) {
             dbProvider.setEpoch(msg.epoch);
             process.sendMessage(msg.sender, new ElectionVote(dbProvider));
             return new Follower(process, null, dbProvider.getEpoch());
         }
         return null;
     }
+
+    private boolean canIVote(ElectionRequest msg) {
+        if (msg.epoch < dbProvider.getEpoch()) return false;
+        if (msg.epoch == dbProvider.getEpoch() && msg.nextIndex <= dbProvider.getNextIndex()) return false;
+        if (msg.lasItemInLog == null && dbProvider.getLastLogItem() == null) return true;
+        return msg.lasItemInLog != null;
+    }
+
 
     private Stage leaderMessage(RaftMessage msg, Queue<Message> inbox) {
         if (msg.epoch >= dbProvider.getEpoch()) {

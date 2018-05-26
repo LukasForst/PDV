@@ -4,11 +4,11 @@ import cz.cvut.fel.agents.pdv.dsand.Message;
 
 import java.util.Queue;
 
-public abstract class Stage {
+abstract class Stage {
     final ClusterProcess process;
     final DatabaseProvider dbProvider;
 
-    public Stage(ClusterProcess process, String leader, int epoch) {
+    Stage(ClusterProcess process, String leader, int epoch) {
         this.process = process;
         this.process.currentLeader = leader;
         this.dbProvider = process.dbProvider;

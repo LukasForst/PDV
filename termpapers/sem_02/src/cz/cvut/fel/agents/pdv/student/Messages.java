@@ -3,7 +3,6 @@ package cz.cvut.fel.agents.pdv.student;
 import cz.cvut.fel.agents.pdv.dsand.Message;
 import cz.cvut.fel.agents.pdv.dsand.Pair;
 import cz.cvut.fel.agents.pdv.evaluation.StoreOperationEnums;
-import cz.cvut.fel.agents.pdv.raft.messages.ClientRequestWithContent;
 
 import java.util.HashMap;
 import java.util.List;
@@ -124,13 +123,5 @@ class ElectionVote extends RaftMessage implements FollowerMessage {
 
     ElectionVote(DatabaseProvider provider) {
         super(provider);
-    }
-}
-
-class ForwardedClientRequest extends Message {
-    final ClientRequestWithContent<StoreOperationEnums, Pair<String, String>> originalMessage;
-
-    public ForwardedClientRequest(ClientRequestWithContent<StoreOperationEnums, Pair<String, String>> originalMessage) {
-        this.originalMessage = originalMessage;
     }
 }
