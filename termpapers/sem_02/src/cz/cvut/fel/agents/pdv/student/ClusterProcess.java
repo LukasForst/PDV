@@ -34,8 +34,8 @@ public class ClusterProcess extends RaftProcess<Map<String, String>> {
         super(id, inbox, outbox);
         this.otherProcessesInCluster = otherProcessesInCluster;
 
-        pingThreshold = networkDelays == 0 ? 2 : networkDelays * 10;
-        pingThreshold = rd.nextInt(pingThreshold * 10) + pingThreshold;
+        pingThreshold = networkDelays == 0 ? 10 : networkDelays * 10;
+        pingThreshold = rd.nextInt(pingThreshold * 3) + pingThreshold / 2;
         stage = new Follower(this, null, dbProvider.getEpoch());
     }
 

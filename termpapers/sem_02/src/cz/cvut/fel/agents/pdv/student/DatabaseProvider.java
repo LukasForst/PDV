@@ -44,7 +44,7 @@ class DatabaseProvider {
 
     void addNonVerified(AppendEntry msg) {
         assert msg.operation.getFirst() != StoreOperationEnums.GET;
-        notVerified = new LogItem(getEpoch(), getNextIndex(), msg.operation.getFirst(), msg.operation.getSecond());
+        notVerified = new LogItem(getEpoch(), getNextIndex(), msg.operation.getFirst(), msg.operation.getSecond(), msg.requestId);
     }
 
     void writeNonVerified_UNSAFE() {

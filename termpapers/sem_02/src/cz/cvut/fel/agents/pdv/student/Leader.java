@@ -63,7 +63,8 @@ class Leader extends Stage {
 
     private boolean canIVote(ElectionRequest msg) {
         if (msg.epoch < dbProvider.getEpoch()) return false;
-        return msg.epoch == dbProvider.getEpoch() && msg.nextIndex <= dbProvider.getNextIndex();
+        if (msg.epoch == dbProvider.getEpoch() && msg.nextIndex <= dbProvider.getNextIndex()) return false;
+        return msg.epoch > dbProvider.getEpoch() || msg.nextIndex > dbProvider.getNextIndex();
     }
 
     private Stage electionRequest(ElectionRequest msg) {

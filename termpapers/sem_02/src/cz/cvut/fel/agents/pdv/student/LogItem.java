@@ -10,16 +10,18 @@ class LogItem implements Serializable {
     final int index;
     final StoreOperationEnums operation;
     final Pair<String, String> data;
+    final String requestId;
 
-    LogItem(int epoch, int index, StoreOperationEnums operation, Pair<String, String> data) {
+    LogItem(int epoch, int index, StoreOperationEnums operation, Pair<String, String> data, String requestId) {
         this.epoch = epoch;
         this.index = index;
         this.operation = operation;
         this.data = new Pair<>(data.getFirst(), data.getSecond());
+        this.requestId = requestId;
     }
 
     LogItem(LogItem logItem) {
-        this(logItem.epoch, logItem.index, logItem.operation, logItem.data);
+        this(logItem.epoch, logItem.index, logItem.operation, logItem.data, logItem.requestId);
     }
 
     @Override
@@ -32,6 +34,7 @@ class LogItem implements Serializable {
         if (epoch != logItem.epoch) return false;
         if (!operation.equals(logItem.operation)) return false;
         if (index != logItem.index) return false;
+        if (!requestId.equals(logItem.requestId)) return false;
         return data.getFirst().equals(logItem.data.getFirst()) && data.getSecond().equals(logItem.data.getSecond());
     }
 
@@ -40,6 +43,7 @@ class LogItem implements Serializable {
         int result = epoch;
         result = 31 * result + data.hashCode();
         result = 31 * result + operation.hashCode();
+        result = 31 * result + requestId.hashCode();
         result = 31 * result + index;
         return result;
     }

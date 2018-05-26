@@ -83,6 +83,8 @@ class Follower extends Stage {
 
     private void voteIfCan(ElectionRequest msg) {
         if (canIVote(msg)) {
+            process.currentLeader = null;
+            lastPingFromLeader = process.currentTime;
             dbProvider.setEpoch(msg.epoch);
             votedInEpochs.add(dbProvider.getEpoch());
             send(msg.sender, new ElectionVote(dbProvider));
@@ -93,9 +95,7 @@ class Follower extends Stage {
         if (votedInEpochs.contains(msg.epoch)) return false;
         if (msg.epoch < dbProvider.getEpoch()) return false;
         if (msg.epoch == dbProvider.getEpoch() && msg.nextIndex < dbProvider.getNextIndex()) return false;
-        if (msg.lasItemInLog == null && dbProvider.getLastLogItem() == null) return true;
-        if (msg.lasItemInLog == null) return false;
-        return msg.nextIndex >= dbProvider.getNextIndex();
+        return msg.epoch > dbProvider.getEpoch() || msg.nextIndex >= dbProvider.getNextIndex();
     }
 
     private Stage checkLeaderActivity() {
