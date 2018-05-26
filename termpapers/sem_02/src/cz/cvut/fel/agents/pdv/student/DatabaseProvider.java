@@ -65,6 +65,10 @@ class DatabaseProvider {
         notVerified = null;
     }
 
+    LogItem getNotVerified() {
+        return notVerified;
+    }
+
     void writeNonVerified(AppendEntryConfirmed msg) {
         writeNonVerified(msg.lasItemInLog);
     }
@@ -73,6 +77,7 @@ class DatabaseProvider {
         log.clear();
         data.clear();
         epoch = msg.epoch;
+        notVerified = msg.notConfirmed == null ? null : new LogItem(msg.notConfirmed);
         log.addAll(msg.log);
         data.putAll(msg.data);
     }

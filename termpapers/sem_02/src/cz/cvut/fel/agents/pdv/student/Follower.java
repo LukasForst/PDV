@@ -38,6 +38,7 @@ class Follower extends Stage {
 
             } else if (message instanceof RecreateLogAndDataDeepCopy) {
                 RecreateLogAndDataDeepCopy msg = (RecreateLogAndDataDeepCopy) message;
+                //todo probably do not replicate everything
                 dbProvider.replicateLog(msg);
 
             } else {
@@ -63,8 +64,11 @@ class Follower extends Stage {
 
         } else if (leaderMessage instanceof AppendEntryConfirmed) {
             AppendEntryConfirmed msg = (AppendEntryConfirmed) leaderMessage;
-            dbProvider.writeNonVerified(msg);
-
+            if (LogItem.equals(msg.lasItemInLog, dbProvider.getNotVerified())) {
+                dbProvider.writeNonVerified(msg);
+            } else {
+                send(process.currentLeader, new RecreateLogAndDataDeepCopyRequest());
+            }
         }
     }
 

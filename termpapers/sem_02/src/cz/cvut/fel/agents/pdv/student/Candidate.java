@@ -62,21 +62,19 @@ public class Candidate extends Stage {
 
     private boolean canIVote(ElectionRequest msg) {
         if (msg.epoch < dbProvider.getEpoch()) return false;
-        if (msg.epoch == dbProvider.getEpoch() && msg.nextIndex <= dbProvider.getNextIndex()) return false;
-        if (msg.lasItemInLog == null && dbProvider.getLastLogItem() == null) return true;
-        return msg.lasItemInLog != null;
+        return msg.epoch == dbProvider.getEpoch() && msg.nextIndex <= dbProvider.getNextIndex();
     }
 
 
     private Stage leaderMessage(RaftMessage msg, Queue<Message> inbox) {
-        if (msg.epoch >= dbProvider.getEpoch()) {
+        if (msg.epoch >= dbProvider.getEpoch() || msg.nextIndex > dbProvider.getNextIndex()) {
             inbox.stream()
                     .filter(x -> x instanceof ClientRequest)
                     .map(x -> (ClientRequest) x)
                     .forEach(x -> send(x.sender, new ServerResponseLeader(x.getRequestId(), msg.sender)));
             inbox.removeIf(x -> x instanceof ClientRequest);
             inbox.add(msg);
-
+            send(msg.sender, new RecreateLogAndDataDeepCopyRequest());
             return new Follower(process, msg.sender, msg.epoch);
         }
         return null;

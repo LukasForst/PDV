@@ -18,6 +18,10 @@ class LogItem implements Serializable {
         this.data = new Pair<>(data.getFirst(), data.getSecond());
     }
 
+    LogItem(LogItem logItem) {
+        this(logItem.epoch, logItem.index, logItem.operation, logItem.data);
+    }
+
     @Override
     public boolean equals(Object o) {
         if (this == o) return true;

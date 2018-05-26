@@ -34,6 +34,10 @@ class Leader extends Stage {
             } else if (message instanceof AppendEntryResponse) {
                 appendEntryResponse((AppendEntryResponse) message);
 
+            } else if (message instanceof RecreateLogAndDataDeepCopyRequest) {
+                //todo whole log copying?
+                send(message.sender, new RecreateLogAndDataDeepCopy(dbProvider));
+
             } else if (message instanceof LeaderMessage) {
                 //this is safe because every interface is extending this abstract class
                 @SuppressWarnings("ConstantConditions") RaftMessage msg = (RaftMessage) message;
@@ -57,8 +61,13 @@ class Leader extends Stage {
         return handleLeaderMessages(leaderMessages);
     }
 
+    private boolean canIVote(ElectionRequest msg) {
+        if (msg.epoch < dbProvider.getEpoch()) return false;
+        return msg.epoch == dbProvider.getEpoch() && msg.nextIndex <= dbProvider.getNextIndex();
+    }
+
     private Stage electionRequest(ElectionRequest msg) {
-        if (msg.epoch > dbProvider.getEpoch()) {
+        if (canIVote(msg)) {
             dbProvider.setEpoch(msg.epoch);
 
             send(msg.sender, new ElectionVote(dbProvider));
@@ -70,7 +79,7 @@ class Leader extends Stage {
 
     private void appendEntryResponse(AppendEntryResponse msg) {
         if (waitingOperation == null) {
-            //todo that's weird
+            send(msg.sender, new RecreateLogAndDataDeepCopy(dbProvider));
             return;
         }
 
@@ -113,7 +122,7 @@ class Leader extends Stage {
         if (waitingOperation != null && (process.otherProcessesInCluster.size() + 1) / 2 < (waitingOperation.getSecond().size() + 1)) {
             send(waitingOperation.getFirst().sender, new ServerResponseConfirm(waitingOperation.getFirst().getRequestId()));
             dbProvider.writeNonVerified_UNSAFE();
-            process.otherProcessesInCluster.forEach(x -> send(x, new AppendEntryConfirmed(dbProvider)));
+            process.otherProcessesInCluster.forEach(x -> send(x, new AppendEntryConfirmed(dbProvider, waitingOperation.getFirst().getRequestId())));
             waitingOperation = null;
         }
     }

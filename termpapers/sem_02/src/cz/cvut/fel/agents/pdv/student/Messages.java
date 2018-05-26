@@ -53,13 +53,16 @@ class AppendEntry extends RaftMessage implements LeaderMessage {
 }
 
 class AppendEntryConfirmed extends RaftMessage implements LeaderMessage {
+    final String requestId;
 
-    AppendEntryConfirmed(int nextIndex, int epoch, LogItem lasItemInLog) {
+    AppendEntryConfirmed(int nextIndex, int epoch, LogItem lasItemInLog, String requestId) {
         super(nextIndex, epoch, lasItemInLog);
+        this.requestId = requestId;
     }
 
-    AppendEntryConfirmed(DatabaseProvider provider) {
+    AppendEntryConfirmed(DatabaseProvider provider, String requestId) {
         super(provider);
+        this.requestId = requestId;
     }
 }
 
@@ -83,16 +86,22 @@ class AppendEntryResponse extends RaftMessage implements FollowerMessage {
 class RecreateLogAndDataDeepCopy extends RaftMessage {
     final List<LogItem> log;
     final Map<String, String> data;
+    final LogItem notConfirmed;
 
-    RecreateLogAndDataDeepCopy(int nextIndex, int epoch, LogItem lasItemInLog, List<LogItem> log, Map<String, String> data) {
+    RecreateLogAndDataDeepCopy(int nextIndex, int epoch, LogItem lasItemInLog, List<LogItem> log, Map<String, String> data, LogItem notConfirmed) {
         super(nextIndex, epoch, lasItemInLog);
-        this.log = log.stream().map(x -> new LogItem(x.epoch, x.index, x.operation, new Pair<>(x.data.getFirst(), x.data.getSecond()))).collect(Collectors.toList());
+        this.log = log.stream().map(LogItem::new).collect(Collectors.toList());
         this.data = new HashMap<>(data);
+        this.notConfirmed = notConfirmed;
     }
 
     RecreateLogAndDataDeepCopy(DatabaseProvider dbProvider) {
-        this(dbProvider.getNextIndex(), dbProvider.getEpoch(), dbProvider.getLastLogItem(), dbProvider.log, dbProvider.data);
+        this(dbProvider.getNextIndex(), dbProvider.getEpoch(), dbProvider.getLastLogItem(), dbProvider.log, dbProvider.data, dbProvider.getNotVerified());
     }
+}
+
+class RecreateLogAndDataDeepCopyRequest extends Message {
+
 }
 
 class HearthBeat extends RaftMessage implements LeaderMessage {
