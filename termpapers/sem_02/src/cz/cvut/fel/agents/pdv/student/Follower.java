@@ -25,6 +25,10 @@ class Follower extends Stage {
             Message message = inbox.poll();
 
             if (message instanceof ClientRequest) {
+                if (process.currentLeader == null) {
+                    notForMe.add(message);
+                    continue;
+                }
                 ClientRequest msg = (ClientRequest) message;
                 send(msg.sender, new ServerResponseLeader(msg.getRequestId(), process.currentLeader));
 
@@ -36,10 +40,11 @@ class Follower extends Stage {
                 ElectionRequest msg = (ElectionRequest) message;
                 voteIfCan(msg);
 
-            } else if (message instanceof RecreateLogAndDataDeepCopy) {
-                RecreateLogAndDataDeepCopy msg = (RecreateLogAndDataDeepCopy) message;
-                //todo probably do not replicate everything
-                dbProvider.replicateLog(msg);
+            } else if (message instanceof DoYouHaveThisRecordRequest) {
+                doYouHaveThisRecord((DoYouHaveThisRecordRequest) message);
+
+            } else if (message instanceof AppendTheseFromIndex) {
+                dbProvider.appendTheseFromIndex((AppendTheseFromIndex) message);
 
             } else {
                 notForMe.add(message);
@@ -48,6 +53,17 @@ class Follower extends Stage {
 
         inbox.addAll(notForMe);
         return checkLeaderActivity();
+    }
+
+    private void doYouHaveThisRecord(DoYouHaveThisRecordRequest msg) {
+        boolean result;
+        if (dbProvider.log.size() <= msg.nextIndex) {
+            result = false;
+        } else {
+            LogItem myLogItem = dbProvider.log.get(msg.nextIndex);
+            result = LogItem.equals(myLogItem, msg.lasItemInLog);
+        }
+        send(msg.sender, new DoYouHaveThisRecordResponse(msg.lasItemInLog, result));
     }
 
     private void processLeaderMessage(RaftMessage leaderMessage) {

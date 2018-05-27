@@ -34,7 +34,7 @@ class DatabaseProvider {
         epoch++;
     }
 
-    boolean compareLastLog(int nextIndex, int epoch, LogItem lastLogItem) {
+    private boolean compareLastLog(int nextIndex, int epoch, LogItem lastLogItem) {
         return nextIndex == log.size() && this.epoch == epoch && LogItem.equals(lastLogItem, getLastLogItem());
     }
 
@@ -56,13 +56,17 @@ class DatabaseProvider {
         assert LogItem.equals(lastItemInLog, notVerified);
         assert notVerified.operation != StoreOperationEnums.GET;
 
-        log.add(notVerified);
-        if (notVerified.operation == StoreOperationEnums.PUT) {
-            data.put(notVerified.data.getFirst(), notVerified.data.getSecond());
-        } else if (notVerified.operation == StoreOperationEnums.APPEND) {
-            data.put(notVerified.data.getFirst(), data.getOrDefault(notVerified.data.getFirst(), "") + notVerified.data.getSecond());
-        }
+        write(notVerified);
         notVerified = null;
+    }
+
+    private void write(LogItem toWrite) {
+        log.add(toWrite);
+        if (toWrite.operation == StoreOperationEnums.PUT) {
+            data.put(toWrite.data.getFirst(), toWrite.data.getSecond());
+        } else if (toWrite.operation == StoreOperationEnums.APPEND) {
+            data.put(toWrite.data.getFirst(), data.getOrDefault(toWrite.data.getFirst(), "") + toWrite.data.getSecond());
+        }
     }
 
     LogItem getNotVerified() {
@@ -73,22 +77,31 @@ class DatabaseProvider {
         writeNonVerified(msg.lasItemInLog);
     }
 
-    void replicateLog(RecreateLogAndDataDeepCopy msg) {
-        log.clear();
-        data.clear();
-        epoch = msg.epoch;
-        notVerified = msg.notConfirmed == null ? null : new LogItem(msg.notConfirmed);
-        log.addAll(msg.log);
-        data.putAll(msg.data);
-    }
-
     String dataGetOrDefault(String key) {
         return data.getOrDefault(key, null);
     }
 
-
     LogItem getLastLogItem() {
         return log.size() == 0 ? null : log.get(log.size() - 1);
     }
+
+    void appendTheseFromIndex(AppendTheseFromIndex msg) {
+        data.clear();
+
+        Queue<LogItem> newLog = new LinkedList<>();
+        for (int i = 0; i < msg.startIndex && i < log.size(); i++) {
+            newLog.add(new LogItem(log.get(i)));
+        }
+        log.clear();
+
+        while (!msg.logs.isEmpty()) {
+            newLog.add(new LogItem(Objects.requireNonNull(msg.logs.poll())));
+        }
+
+        while (!newLog.isEmpty()) {
+            write(newLog.poll());
+        }
+    }
+
 
 }

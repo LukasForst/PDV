@@ -11,6 +11,8 @@ class Leader extends Stage {
     private Pair<ClientRequestWithContent, HashSet<String>> waitingOperation = null;
     private Set<String> processedClientRequests = new HashSet<>();
 
+    private Map<String, Integer> incompleteLog = new HashMap<>();
+
     Leader(ClusterProcess process, String leader, int epoch) {
         super(process, leader, epoch);
         super.process.otherProcessesInCluster.forEach(x -> send(x, new HearthBeat(dbProvider)));
@@ -34,9 +36,8 @@ class Leader extends Stage {
             } else if (message instanceof AppendEntryResponse) {
                 appendEntryResponse((AppendEntryResponse) message);
 
-            } else if (message instanceof RecreateLogAndDataDeepCopyRequest) {
-                //todo whole log copying?
-                send(message.sender, new RecreateLogAndDataDeepCopy(dbProvider));
+            } else if (message instanceof DoYouHaveThisRecordResponse) {
+                doYouHaveThisRecordResponse((DoYouHaveThisRecordResponse) message);
 
             } else if (message instanceof LeaderMessage) {
                 //this is safe because every interface is extending this abstract class
@@ -59,6 +60,48 @@ class Leader extends Stage {
         process.otherProcessesInCluster.forEach(x -> send(x, new HearthBeat(dbProvider)));
         checkWaitingOperation();
         return handleLeaderMessages(leaderMessages);
+    }
+
+    private void doYouHaveThisRecordResponse(DoYouHaveThisRecordResponse msg) {
+        if (!incompleteLog.containsKey(msg.sender)) return;
+
+        if (msg.response) {
+            int correctIndex = incompleteLog.get(msg.sender);
+            sendAppendTheseFromIndex(msg.sender, correctIndex);
+
+        } else {
+            int bellowedIndex = incompleteLog.get(msg.sender) - 1;
+            if (bellowedIndex > 0) {
+                LogItem logItem = dbProvider.log.get(bellowedIndex);
+                send(msg.sender, new DoYouHaveThisRecordRequest(logItem));
+                incompleteLog.put(msg.sender, bellowedIndex);
+            } else {
+                sendAppendTheseFromIndex(msg.sender, 0);
+            }
+        }
+    }
+
+    private void sendAppendTheseFromIndex(String target, int correctIndex) {
+        Queue<LogItem> logsFromIndex = new LinkedList<>();
+        for (int i = correctIndex; i < dbProvider.log.size(); i++) {
+            logsFromIndex.add(new LogItem(dbProvider.log.get(i)));
+        }
+
+        send(target, new AppendTheseFromIndex(correctIndex, logsFromIndex));
+        sendAppendEntry(target);
+
+        incompleteLog.remove(target);
+    }
+
+    private void sendAppendEntry(String recipient) {
+        if (waitingOperation == null) return;
+
+        ClientRequestWithContent request = waitingOperation.getFirst();
+        //noinspection unchecked this is because we need to cast it from object
+        send(recipient, new AppendEntry(dbProvider,
+                new Pair<>(StoreOperationEnums.valueOf(request.getOperation().getName()),
+                        (Pair<String, String>) request.getContent()),
+                request.getRequestId()));
     }
 
     private boolean canIVote(ElectionRequest msg) {
@@ -84,12 +127,10 @@ class Leader extends Stage {
         if (msg.canPerformOperation && msg.requestId.equals(waitingOperation.getFirst().getRequestId())) {
             waitingOperation.getSecond().add(msg.sender);
         } else {
-            send(msg.sender, new RecreateLogAndDataDeepCopy(dbProvider));
-            //noinspection unchecked this is because we need to cast it from object
-            send(msg.sender, new AppendEntry(dbProvider,
-                    new Pair<>(StoreOperationEnums.valueOf(waitingOperation.getFirst().getOperation().getName()),
-                            (Pair<String, String>) waitingOperation.getFirst().getContent()),
-                    msg.requestId));
+            LogItem logItem = dbProvider.getLastLogItem();
+            assert logItem != null;
+            incompleteLog.put(msg.sender, logItem.index);
+            send(msg.sender, new DoYouHaveThisRecordRequest(logItem));
         }
     }
 

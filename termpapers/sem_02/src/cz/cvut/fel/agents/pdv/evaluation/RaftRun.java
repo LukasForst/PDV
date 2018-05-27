@@ -28,7 +28,7 @@ public class RaftRun {
 
     public static void main(String[] args) {
 //        stressTestLeader(100);
-        stressTestLogReplication(100);
+        stressTestLogReplication(10);
 //        stressTestKeyValue(100);
     }
 

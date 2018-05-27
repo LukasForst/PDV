@@ -75,7 +75,6 @@ public class Candidate extends Stage {
                     .forEach(x -> send(x.sender, new ServerResponseLeader(x.getRequestId(), msg.sender)));
             inbox.removeIf(x -> x instanceof ClientRequest);
             inbox.add(msg);
-            send(msg.sender, new RecreateLogAndDataDeepCopyRequest());
             return new Follower(process, msg.sender, msg.epoch);
         }
         return null;
