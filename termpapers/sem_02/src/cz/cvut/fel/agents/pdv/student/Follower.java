@@ -66,8 +66,6 @@ class Follower extends Stage {
             AppendEntryConfirmed msg = (AppendEntryConfirmed) leaderMessage;
             if (LogItem.equals(msg.lasItemInLog, dbProvider.getNotVerified())) {
                 dbProvider.writeNonVerified(msg);
-            } else {
-                send(process.currentLeader, new RecreateLogAndDataDeepCopyRequest());
             }
         }
     }

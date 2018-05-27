@@ -27,8 +27,8 @@ import java.util.stream.IntStream;
 public class RaftRun {
 
     public static void main(String[] args) {
-        stressTestLeader(100);
-//        stressTestLogReplication(10);
+//        stressTestLeader(100);
+        stressTestLogReplication(100);
 //        stressTestKeyValue(100);
     }
 

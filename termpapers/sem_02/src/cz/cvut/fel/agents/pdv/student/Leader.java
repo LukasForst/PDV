@@ -70,9 +70,7 @@ class Leader extends Stage {
     private Stage electionRequest(ElectionRequest msg) {
         if (canIVote(msg)) {
             dbProvider.setEpoch(msg.epoch);
-
             send(msg.sender, new ElectionVote(dbProvider));
-
             return new Follower(process, null, dbProvider.getEpoch());
         }
         return null;
@@ -80,7 +78,6 @@ class Leader extends Stage {
 
     private void appendEntryResponse(AppendEntryResponse msg) {
         if (waitingOperation == null) {
-            send(msg.sender, new RecreateLogAndDataDeepCopy(dbProvider));
             return;
         }
 
@@ -133,7 +130,6 @@ class Leader extends Stage {
             messages.sort((m1, m2) -> Integer.compare(m2.epoch, m1.epoch));
             RaftMessage biggestEpoch = messages.get(0);
             if (biggestEpoch.epoch > dbProvider.getEpoch()) {
-                send(biggestEpoch.sender, new RecreateLogAndDataDeepCopy(dbProvider));
                 return new Follower(process, biggestEpoch.sender, biggestEpoch.epoch);
             }
         }
